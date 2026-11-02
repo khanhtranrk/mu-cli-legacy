@@ -196,3 +196,11 @@ without repeating report actions in every node. Uploads remain explicit spec act
 Current MasterFlow tokens are bound by the Clerk owner to one exact --unit-id and an explicit allowed-spec list. Update existing tokens in Settings → Unit tokens. Workers claim waiting requests only; custom claims for processing/completed statuses are refused. Server claim responses must include assignmentVersion; the CLI preserves it in request context, and request HTTP actions automatically include X-Mu-Assignment-Version for the configured server origin. Old in-flight clients without assignment generations must finish before cutover or have their work deliberately requeued. Worker tokens no longer allow global request inspection or creation; use the authenticated desktop.
 
 Artifact uploads use the server-issued method and headers (S3 PUT), not a fixed POST, and completion no longer includes Convex storageId. Resolve a download URL with worker auth, then fetch bytes directly without sending the worker token to storage. Update stored YAML as well as local examples; MasterFlow's saved YAML remains authoritative and is never silently rewritten by this migration. The sibling MasterFlow docs/request-artifacts.md owns the full storage configuration/security contract.
+
+### Registry-derived request parameters
+
+Phase-4 MasterFlow resolves Registry/CEL inputs before claim and keeps ancestor
+snapshots server-side. The claim response and assignment/report protocol are
+unchanged; `payload` contains ordinary, typed JSON. CLI workers neither fetch
+Creation Space/Session Registries nor evaluate their CEL expressions. See
+[Registry input compatibility](02-context-and-templates.md#masterflow-registry-inputs-phase-4).

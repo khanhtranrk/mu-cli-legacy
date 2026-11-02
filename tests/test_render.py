@@ -32,6 +32,22 @@ class RenderTests(unittest.TestCase):
         self.assertEqual(_render("{missing[key]}", context), "{missing[key]}")
         self.assertEqual(_render("{cycle}", {"cycle": "{cycle}"}), "{cycle}")
 
+    def test_masterflow_resolved_registry_payload_is_plain_typed_input(self):
+        # MasterFlow resolves CEL before claim; the worker receives ordinary JSON.
+        payload = {"title": "Song: calm night", "width": 1024, "enabled": False,
+                   "items": [1, "master"], "meta": {"mood": "calm"}}
+        types = {"title": "string", "width": "number", "enabled": "boolean",
+                 "items": "array", "meta": "object"}
+        schema = {key: {"type": kind} for key, kind in types.items()}
+        result = params_for(schema, payload, {"session": {"working_dir": "/tmp"}}, "pipeline main")
+        self.assertEqual(result, payload)
+        self.assertIs(type(result["width"]), int)
+        self.assertIs(type(result["enabled"]), bool)
+        # No Registry engine or ancestor access is introduced in this runtime.
+        with self.assertRaises(RuntimeError):
+            params_for({"width": {"type": "number"}},
+                       {"width": "${{ Request.Registry.Width }}"}, {}, "pipeline main")
+
     def test_song_cover_numeric_params_reach_subprocess_as_strings(self):
         spec = yaml.safe_load((Path(__file__).parents[1] / "examples/song-with-cover/spec.yaml").read_text())
         node = next(n for n in spec["pipeline"]["song-with-cover"]["nodes"] if n["name"] == "generate-cover")

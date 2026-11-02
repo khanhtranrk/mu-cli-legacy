@@ -314,3 +314,23 @@ schedule:
 ```
 
 Routine calls create an isolated context with their own params and actions; see [routines](09-routines.md). Payload mapping keys in HTTP body and write_json content are rendered recursively with collision checks.
+
+## MasterFlow Registry inputs (phase 4)
+
+MasterFlow can resolve typed Space/Session/Request Registry values and CEL
+`${{ ... }}` references in submitted Request parameters **before claiming**.
+It retains a snapshot on the server; the worker receives only the resolved JSON
+payload, with numbers, booleans and containers already typed. No ancestor
+Registry lookup or CEL interpreter was added to this CLI runtime.
+
+For example, a submitted width `${{ Request.Registry.Width }}` can arrive in a
+claim as the JSON number `1024`. The normal pipeline `{params[width]}` path then
+uses that number. Supplying the unresolved expression directly as a local
+numeric parameter is still a type error. Existing `{...}` rendering of supplied
+values and Spec defaults remains in effect.
+
+This feature does not change the Spec language. CEL in Spec YAML/actions,
+conditions or local request files is deferred to the versioned engine migration
+(phase 5). Lowercase worker `session` remains runtime context, independent of a
+Creation Session. MasterFlow snapshot/edit/refresh/retry semantics are documented
+in [the canonical MasterFlow Registry guide](https://github.com/khanhtranrk/mu-masterflow/blob/main/docs/registry-cel.md).
