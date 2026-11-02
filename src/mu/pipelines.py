@@ -3,12 +3,9 @@
 from copy import deepcopy
 from pathlib import Path
 import re
-import subprocess
 from typing import Any
 
 import yaml
-
-from mu.actions import ActionError, run_action
 
 
 class PipelineBuildError(ValueError):
@@ -64,33 +61,6 @@ def _read_yaml(path: Path, label: str) -> dict[str, Any]:
     return value
 
 
-def run_input_before(
-    input_path: Path,
-    *,
-    cache_dir: Path,
-    output_dir: Path,
-) -> dict[str, Any]:
-    """Run input-level preparation actions and return the parsed input context."""
-    input_data = _read_yaml(input_path, "input")
-    actions = input_data.get("before", [])
-    if not isinstance(actions, list):
-        raise PipelineBuildError("input 'before' must be a list")
-    resolved_cache = cache_dir.expanduser().resolve()
-    context = {
-        **input_data,
-        "cache_dir": str(resolved_cache),
-        "temp_dir": str(resolved_cache),
-        "output_dir": str(output_dir.expanduser().resolve()),
-        "working_dir": str(Path.cwd()),
-    }
-    for index, action in enumerate(actions):
-        if not isinstance(action, dict):
-            raise PipelineBuildError(f"input before[{index}] must be a mapping")
-        try:
-            run_action(action, context)
-        except (ActionError, OSError, subprocess.CalledProcessError) as exc:
-            raise PipelineBuildError(f"input before[{index}] failed: {exc}") from exc
-    return input_data
 
 
 def _lookup(expression: str, context: dict[str, Any]) -> tuple[bool, Any]:

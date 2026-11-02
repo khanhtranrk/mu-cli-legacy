@@ -11,9 +11,8 @@ The current runtime and legacy compatibility paths serve different spec formats.
 - `src/mu/runtime.py`: workload/pipeline spec execution, context rendering, conditions, actions, node lifecycle, request scheduling, and remote master-flow support.
 - `src/mu/cli.py`: Typer commands, local and remote request loading, GPU option parsing, and user-facing reports.
 - `src/mu/hardware.py`: NVIDIA/AMD detection and 4 GiB scheduling-unit capacity.
-- `src/mu/pipelines.py`: legacy processor/pipeline expansion, input preparation, model discovery, and template rendering.
+- `src/mu/pipelines.py`: legacy processor/pipeline expansion, model discovery, and template rendering.
 - `src/mu/tasks.py`: legacy processor task graph and scheduler.
-- `src/mu/executor.py`: legacy processor execution and dependency failure propagation.
 - `src/mu/spec.py`: legacy spec loading and repair validation.
 - `src/mu/actions.py`: legacy pluggable action registry.
 - `src/mu/validators.py`: legacy pluggable validation registry.
