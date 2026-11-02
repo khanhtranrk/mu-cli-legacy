@@ -10,6 +10,9 @@ The current runtime and legacy compatibility paths serve different spec formats.
 
 - `src/mu/runtime.py`: workload/pipeline spec execution, context rendering, conditions, actions, node lifecycle, request scheduling, and remote master-flow support.
 - `src/mu/cli.py`: Typer commands, local and remote request loading, GPU option parsing, and user-facing reports.
+- `src/mu/expressions.py`: bounded, versioned CEL rendering and interpreter profile adapters.
+- `src/mu/spec_migration.py`: conservative legacy-to-CEL candidate migration.
+- `src/mu/master_flow.py`: authenticated HTTP transport and worker engine capabilities.
 - `src/mu/hardware.py`: NVIDIA/AMD detection and 4 GiB scheduling-unit capacity.
 - `src/mu/pipelines.py`: legacy processor/pipeline expansion, model discovery, and template rendering.
 - `src/mu/tasks.py`: legacy processor task graph and scheduler.
@@ -84,6 +87,33 @@ uv sync
 uv run mu --help
 ```
 
-There is currently no committed test suite or configured linter. For runtime behavior, prefer focused temporary specs and targeted Python checks rather than inventing a broad default suite. If tests are necessary, add a focused test beside the relevant existing coverage and state exactly what was run.
+CPU-only regressions are committed under `tests/`. Select the owning suite,
+for example `uv run python -m unittest discover -s tests -p test_flow.py` for
+worker/lifecycle changes or `-p test_expressions.py` for CEL/migration. Run full
+`uv run python -m unittest discover -s tests` for justified cross-module changes.
+Do not run media examples or download models as routine validation.
 
 Do not add tests or run a broad test suite unless the user asks for verification or the change needs protection through a non-obvious regression test.
+
+
+## Versioned expressions and Artifact handoff
+
+Read [CEL execution/migration](docs/spec-format/11-cel.md). Omitted engine means
+`python-format-v1`; `cel-v1` is explicit and unknown versions fail before entry
+execution. Never evaluate CEL through Python eval/transpilation. Keep the pinned
+interpreter/profile adapters and identical conformance fixture synchronized with
+MasterFlow. Whole-value templates preserve JSON types; rendered results and
+supplied CEL pipeline payloads are not evaluated again.
+
+Registry snapshots arrive as captured values in `registryContext`, exposed under
+uppercase `CreationSpace.Registry`, `Session.Registry`, `Request.Registry`.
+Lowercase `session` remains worker runtime context. CEL pipeline context is
+request-local after shared preparation; never cache one Request's Registry into
+another. Entry/shared prepare has no Request-specific inputs.
+
+Bootstrap advertises supported engines; claim sends the engine actually loaded.
+Keep claimed output metadata in `request.artifacts` for copied/shared inputs.
+HTTP `artifactId` denotes a Request output key, not the canonical Artifact ID.
+S3 downloads use expiring URLs with no legacy-provider flag. Server identity and
+ownership are canonical in the sibling MasterFlow [Artifact model](../mu-masterflow/docs/artifact-ownership.md);
+workers must not reintroduce metadata shadow tables or old storageId workflows.
