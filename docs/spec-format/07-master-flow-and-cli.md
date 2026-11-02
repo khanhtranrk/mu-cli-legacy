@@ -140,13 +140,47 @@ workload actions are included in this maximum. See [actions](04-actions.md) for 
 
 ## Request artifacts
 
-MasterFlow stores completed files in `requests.artifacts[]`, independently of `nodeStates`. Each entry has `id`, optional `nodeName`, `name`, optional `label`, `storageId`, backend-derived `contentType`, byte `size`, and server `createdAt`. Inspection and claim responses include optional artifact metadata, available to templates under `request[artifacts]`; local requests and older server records may omit it. Completing an upload does not mutate this local context or change execution status.
+MasterFlow keeps request/node artifact metadata arrays as compatibility
+projections. Their `id` and the HTTP `artifactId` are Request-scoped **output
+keys**, not the independent canonical Artifact ID. Entries include name, optional
+node/label, MIME type, size and creation time; S3 entries include handler,
+connection ID and object key, while read-only legacy entries use `storageId`.
+Claim responses preserve this shape under `request[artifacts]`. Completing an
+upload does not mutate the worker's local request context or execution status.
 
-Use `send_http_request` to call `POST /api/requests/artifacts/upload-url` with `requestId`, stable `artifactId`, lowercase SHA-256 and byte size. The server accepts size as a number or canonical decimal string for command stdout. It returns `uploadId`, `uploadUrl` and `expiresAt` (one hour). POST raw bytes with `body_file` to that native URL **without a worker token**. Use the returned `storageId` in `POST /api/requests/artifacts/complete` with the original `requestId`/`uploadId`, a basename `name`, and optional `nodeName`/`label`. Complete using the same unit token that started the receipt. The receipt expires after one hour; Convex native uploads have a documented two-minute POST timeout even if the client timeout is longer. The server verifies expected bytes, receipt ownership/expiry and exclusive storage binding before atomically updating one artifact. Retry completion with the same IDs if its response is lost. A new upload for an existing logical ID replaces that artifact and deletes its old file; choose a new ID to keep another version.
+Call `POST /api/requests/artifacts/upload-url` with requestId, a stable output key
+as artifactId, byte size and lowercase SHA-256. Optional connectionId selects a
+configured storage connection. Use the returned `method` (`PUT`), `headers` and
+uploadUrl to send raw bytes with `body_file`, **without a worker token**. Upload
+URLs last 15 minutes. Complete with requestId/uploadId, basename name and optional
+nodeName/label; do not submit a Convex storageId. The server verifies staged bytes
+and finalizes a separate storage object before registering metadata. Retry
+completion with identical details if its response is lost.
 
-Download with `GET /api/requests/artifacts/download?requestId=...&artifactId=...`, a worker Authorization header and `response_file`. URL-encode query values; the example uses a simple safe artifact ID. The authenticated endpoint supports files up to 100 MiB. For larger files, `GET /api/requests/artifacts/download-url` returns `{url,name,contentType,size}`; fetch `url` with `response_file` **without a worker token**. Such direct URLs are bearer links without automatic app-level expiry. Revoking the token or soft-deleting the request does not revoke an already issued link. Native upload/download URLs can use a different host/port from `session.server`, and both must be reachable.
+Worker API calls require the active assigned unit token and
+`X-Mu-Assignment-Version`; the runtime supplies the generation for request-context
+actions to its configured server origin. Workers cannot overwrite an output from
+the same run. A reset generation may publish the same output key, creating a new
+canonical Artifact/File rather than redirecting earlier shared Artifacts. Physical
+files are retained after logical removal or replacement.
 
-A request supports at most 100 stored artifacts. Soft deletion preserves files but blocks new registration/download lookups. Abandoned uploads and receipts are not automatically cleaned up. Node `artifacts` now use the same metadata-array shape as request artifacts. Completion refreshes existing node references on replacement.
+Both `/api/requests/artifacts/download-url` and the older `/download` route return
+JSON with an expiring URL, name, contentType, size, expiresAt and legacy. Resolve
+that URL with worker authentication, then fetch bytes directly with response_file
+**without forwarding the worker token**. S3 GET URLs last five minutes; old
+Convex URLs have `expiresAt: null`. Existing issued URLs are bearer capabilities
+and cannot be revoked merely by removing an Artifact or revoking a token. Both
+API and storage origins must be reachable by the worker.
+
+The 100 logical output-key limit per Request includes deletion tombstones. Single
+uploads are limited to 5 GiB. Soft deletion denies new artifact access, while
+retaining bytes. The phase-2 server adapter preserves all worker payloads: Copy
+and Share into a Request simply register the target's own output-key projection.
+Workers do not gain access to arbitrary Space/Session Artifacts or reuse operations.
+See the canonical [MasterFlow artifact ownership documentation](https://github.com/khanhtranrk/mu-masterflow/blob/main/docs/artifact-ownership.md)
+for the Artifact/File model and metadata migration, and its
+[storage protocol](https://github.com/khanhtranrk/mu-masterflow/blob/main/docs/request-artifacts.md)
+for setup and provider behavior.
 
 See [the executable example](../../examples/master-flow-artifacts/spec.yaml), which creates and uploads a small JSON file, downloads it again and compares the bytes. Store the spec in MasterFlow, create a disposable request for its `demo` pipeline, and run `uv run mu master-flow run <spec-slug> --unit-id artifact-demo` with `MU_MASTER_FLOW_SERVER` and `MU_MASTER_FLOW_TOKEN` configured. No GPU or model downloads are required. Only run against requests intended for this test.
 
