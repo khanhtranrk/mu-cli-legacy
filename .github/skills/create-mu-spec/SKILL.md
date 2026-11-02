@@ -43,7 +43,7 @@ Use this skill whenever the requested output is a Mu spec or a spec fragment. Th
    - Start from [`assets/minimal-spec.yaml`](./assets/minimal-spec.yaml) when creating a new spec.
    - Keep workload names and node names stable and unique.
    - Declare every pipeline/workload parameter explicitly.
-   - Use `{params[...]}` for parameters, `{session[...]}` for session paths, and `{sys[...]}` for system cache/model paths.
+   - Use CEL only: `${{ params.input }}`, `${{ session.output_dir }}`, `${{ sys.cache_dir }}`. Add `expression_engine: cel-v1`; supplied Request values are literal and rendering is once-only. Read [CEL](../../../docs/spec-format/11-cel.md) for typed values and captured Registry scopes.
    - Use argv lists in `target`/`args`; never require an undocumented shell.
    - Use `depends_on: [node_name]`; prerequisites must report success and dependency conditions are not supported.
    - Inside a node, use `operator: node_state`, `target: [status]`, and an explicit `expected` (for example `failed` in `finally`).
@@ -82,6 +82,7 @@ Use this skill whenever the requested output is a Mu spec or a spec fragment. Th
 Use this shape for a new local pipeline:
 
 ```yaml
+expression_engine: cel-v1
 entries: {}
 
 workloads:
@@ -90,7 +91,7 @@ workloads:
       input: {type: string}
       output: {type: string}
     target: python
-    args: [example.py, "{params[input]}", "{params[output]}"]
+    args: [example.py, "${{ params.input }}", "${{ params.output }}"]
     units: 0
 
 pipeline:
@@ -104,11 +105,11 @@ pipeline:
           - type: execute_workload
             workload: example
             args:
-              input: "{params[input]}"
-              output: "{params[output]}"
+              input: "${{ params.input }}"
+              output: "${{ params.output }}"
         postcondition:
           operator: file_exists
-          path: "{params[output]}"
+          path: "${{ params.output }}"
 ```
 
 Note: quote every template string as needed and ensure a real existing executable replaces `example.py`.

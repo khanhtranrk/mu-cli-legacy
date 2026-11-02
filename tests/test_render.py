@@ -16,21 +16,22 @@ class RenderTests(unittest.TestCase):
                   "text": "001", "object": {"items": [1]}, "list": [True, 2]}
         for name, expected in values.items():
             with self.subTest(name=name):
-                actual = _render("{params[" + name + "]}", {"params": values})
+                actual = _render("${{ params[" + repr(name) + "] }}", {"params": values})
                 self.assertEqual(actual, expected)
                 self.assertIs(type(actual), type(expected))
                 if isinstance(expected, (dict, list)):
                     self.assertIsNot(actual, expected)
-        copied = _render("{params[object]}", {"params": values})
+        copied = _render("${{ params.object }}", {"params": values})
         copied["items"].append(3)
         self.assertEqual(values["object"], {"items": [1]})
 
     def test_nested_templates_and_composed_strings(self):
-        context = {"params": {"width": 1280, "enabled": True}, "alias": "{params[width]}"}
-        self.assertEqual(_render({"args": ["{alias}", "width={alias}", "flag={params[enabled]}"]}, context),
-                         {"args": [1280, "width=1280", "flag=True"]})
-        self.assertEqual(_render("{missing[key]}", context), "{missing[key]}")
-        self.assertEqual(_render("{cycle}", {"cycle": "{cycle}"}), "{cycle}")
+        context = {"params": {"width": 1280, "enabled": True}, "alias": "${{ params.width }}"}
+        self.assertEqual(_render({"args": ["${{ alias }}", "width=${{ alias }}", "flag=${{ params.enabled }}"]}, context),
+                         {"args": ["${{ params.width }}", "width=${{ params.width }}", "flag=true"]})
+        with self.assertRaises(Exception):
+            _render("${{ missing.key }}", context)
+        self.assertEqual(_render("${{ cycle }}", {"cycle": "${{ cycle }}"}), "${{ cycle }}")
 
     def test_masterflow_resolved_registry_payload_is_plain_typed_input(self):
         # MasterFlow resolves CEL before claim; the worker receives ordinary JSON.

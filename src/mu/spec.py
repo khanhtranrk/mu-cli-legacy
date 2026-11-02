@@ -6,6 +6,8 @@ from typing import Any
 
 import yaml
 
+from mu.expressions import engine_for, validate_templates
+
 from mu.validators import ValidationError, ValidationResult, validate_action_checks
 from mu.actions import ACTION_HANDLERS, ActionError, run_action
 
@@ -22,6 +24,11 @@ def load_spec(path: Path) -> dict[str, Any]:
         raise SpecError(f"cannot read {path}: {exc}") from exc
     if not isinstance(data, dict):
         raise SpecError("spec root must be a YAML mapping")
+    try:
+        engine_for(data)
+        validate_templates(data)
+    except ValueError as exc:
+        raise SpecError(str(exc)) from exc
     return data
 
 

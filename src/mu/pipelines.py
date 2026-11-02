@@ -2,10 +2,11 @@
 
 from copy import deepcopy
 from pathlib import Path
-import re
 from typing import Any
 
 import yaml
+
+from mu.expressions import engine_for, validate_templates, render as _render
 
 
 class PipelineBuildError(ValueError):
@@ -60,51 +61,6 @@ def _read_yaml(path: Path, label: str) -> dict[str, Any]:
         raise PipelineBuildError(f"{label} root must be a YAML mapping")
     return value
 
-
-
-
-def _lookup(expression: str, context: dict[str, Any]) -> tuple[bool, Any]:
-    match = re.fullmatch(r"([A-Za-z_][\w]*)(?:\[([^\]]+)\])*", expression)
-    if not match:
-        return False, None
-    root = match.group(1)
-    if root not in context:
-        return False, None
-    value: Any = context[root]
-    for key in re.findall(r"\[([^\]]+)\]", expression):
-        if not isinstance(value, dict) or key not in value:
-            return False, None
-        value = value[key]
-    return True, value
-
-
-def _render(value: Any, context: dict[str, Any]) -> Any:
-    if isinstance(value, dict):
-        return {key: _render(item, context) for key, item in value.items()}
-    if isinstance(value, list):
-        return [_render(item, context) for item in value]
-    if not isinstance(value, str):
-        return value
-
-    rendered = value
-    for _ in range(8):
-        whole = re.fullmatch(r"\{([^{}]+)\}", rendered)
-        if whole:
-            found, replacement = _lookup(whole.group(1), context)
-            if found and not isinstance(replacement, str):
-                return deepcopy(replacement)
-
-        def replace(match: re.Match[str]) -> str:
-            found, replacement = _lookup(match.group(1), context)
-            return str(replacement) if found else match.group(0)
-
-        updated = re.sub(r"\{([^{}]+)\}", replace, rendered)
-        if updated == rendered:
-            break
-        rendered = updated
-    return rendered
-
-
 def build_pipelines(
     spec_path: Path,
     input_path: Path,
@@ -116,6 +72,11 @@ def build_pipelines(
 ) -> list[dict[str, Any]]:
     """Expand pipelines over the collection selected by each pipeline definition."""
     spec = _read_yaml(spec_path, "spec")
+    try:
+        engine_for(spec)
+        validate_templates(spec)
+    except ValueError as exc:
+        raise PipelineBuildError(str(exc)) from exc
     if input_data is None:
         input_data = _read_yaml(input_path, "input")
     processors = spec.get("processors", {})

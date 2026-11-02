@@ -32,10 +32,10 @@ setup to `pipeline.<name>.prepare`.
 pipeline:
   demo:
     context:
-      work: "{session[cache_dir]}/demo"
+      work: "${{ session.cache_dir }}/demo"
     prepare:
       - type: create_dir
-        path: "{work}"
+        path: "${{ session.cache_dir }}/demo"
     params:
       name: {type: string}
     nodes: []
@@ -43,11 +43,11 @@ pipeline:
 
 Prepare runs once per pipeline per invocation, after a valid request selects it
 and before its nodes run. It is reused across batches. Unused pipelines are
-never prepared. Prepare receives the entry context merged with pipeline context;
-it has no `params`, `request`, `node` or `schedule`. Its context and saved action
-results are deep-copied into each request, then params and remote metadata are
-added. Node contexts are deep copies again. Pipeline context is merged once per
-prepared pipeline and must not depend on request input. Model discovery is
+never prepared. Prepare receives the entry context with empty Registry maps;
+it has no Request-specific `params`, `request`, `node` or `schedule`. Its saved
+results are deep-copied into each Request, then captured Registry maps,
+request metadata, pipeline context and validated params are added. Pipeline
+context is request-local and evaluated before params. Model discovery is
 refreshed after preparation. A preparation failure is cached for this invocation;
 other pipelines in the batch still execute.
 
@@ -85,9 +85,9 @@ uv run mu master-flow run song-generation \
 | `--unit-type` | Unit type; defaults to `unknown` |
 | `--refresh-loop` | Claim subsequent batches until an empty array |
 
-The resolved connection is available in templates as `{session[server]}` and
-`{session[token]}` during initialization, pipeline prepare, nodes and finalization.
-The server has no trailing slash; use `Authorization: "Bearer {session[token]}"`
+The resolved connection is available in templates as `${{ session.server }}` and
+`${{ session.token }}` during initialization, pipeline prepare, nodes and finalization.
+The server has no trailing slash; use `Authorization: "Bearer ${{ session.token }}"`
 in HTTP action headers. These fields exist only for master flow. See
 [connection context and example](02-context-and-templates.md#master-flow-connection-in-session).
 
@@ -108,7 +108,7 @@ Execution order:
    entire batch finishes; an empty array ends the flow. A failed batch stops refresh.
 8. Run finalization, then heartbeat `offline`, retaining unit details.
 
-Remote request templates expose `{request[requestId]}` and `{request[specSlug]}`.
+Remote request templates expose `${{ request.requestId }}` and `${{ request.specSlug }}`.
 Payload remains exclusively under `params`. Remote payloads must be mappings even
 though the server can store arbitrary JSON. Request metadata is never shared.
 The transport uses a 30-second timeout and never retries mutations automatically:
@@ -199,11 +199,11 @@ Artifact uploads use the server-issued method and headers (S3 PUT), not a fixed 
 
 ### Registry-derived request parameters
 
-Phase-4 MasterFlow resolves Registry/CEL inputs before claim and keeps ancestor
-snapshots server-side. The claim response and assignment/report protocol are
-unchanged; `payload` contains ordinary, typed JSON. CLI workers neither fetch
-Creation Space/Session Registries nor evaluate their CEL expressions. See
-[Registry input compatibility](02-context-and-templates.md#masterflow-registry-inputs-phase-4).
+MasterFlow resolves Registry/CEL inputs before claim and retains full snapshots
+server-side. Workers receive literal typed `payload` plus captured Registry value
+maps, exposed as `CreationSpace.Registry`, `Session.Registry`, `Request.Registry`.
+They never fetch live ancestor registries or re-evaluate Registry definitions.
+See [Registry inputs](02-context-and-templates.md#masterflow-registry-inputs).
 
 ### Canonical Artifact storage
 

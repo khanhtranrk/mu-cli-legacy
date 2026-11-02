@@ -92,33 +92,6 @@ def _print_plan_report(
     )
 
 
-@spec_app.command("migrate-cel")
-def spec_migrate_cel(
-    spec: Path = typer.Argument(..., exists=True, dir_okay=False, readable=True),
-    output: Path | None = typer.Option(None, "--output", help="Write a new candidate file; never overwrite an existing file."),
-) -> None:
-    """Preview a conservative legacy-to-CEL migration; review before use."""
-    import json
-    import yaml
-    from mu.runtime import read_data
-    from mu.spec_migration import migrate_spec
-    try:
-        report = migrate_spec(read_data(spec))
-        typer.echo(json.dumps({k:v for k,v in report.items() if k != "spec"}, ensure_ascii=False, indent=2))
-        if report["issues"]:
-            raise typer.Exit(code=2)
-        if output:
-            candidate = json.dumps(report["spec"], ensure_ascii=False, indent=2) if output.suffix == ".json" else yaml.safe_dump(report["spec"], allow_unicode=True, sort_keys=False)
-            with output.open("x", encoding="utf-8") as stream:
-                stream.write(candidate)
-            typer.echo(f"Candidate written: {output}. Source unchanged.")
-        else:
-            typer.echo("Preview only. Use --output NEW_FILE to write a candidate.")
-    except (ValueError, TypeError, OSError) as exc:
-        typer.echo(f"Migration error: {exc}", err=True)
-        raise typer.Exit(code=2) from exc
-
-
 @spec_app.command("validate")
 def spec_validate(
     spec: Path = typer.Argument(..., exists=True, dir_okay=False, readable=True),

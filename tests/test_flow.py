@@ -33,8 +33,8 @@ class FlowTests(unittest.TestCase):
                    "from pathlib import Path; p=Path('count'); p.write_text(p.read_text()+'x' if p.exists() else 'x')"],
                    "save_state": "setup"}
         spec = {"pipeline": {"used": {"prepare": [prepare], "params": {"name": {"type": "string"}},
-                "nodes": [{"name": "save", "before_run": [write("{session[working_dir]}/{params[name]}.json",
-                    {"id": "{request[requestId]}", "ready": "{actions[setup][success]}"})]}]},
+                "nodes": [{"name": "save", "before_run": [write("${{ session.working_dir }}/${{ params.name }}.json",
+                    {"id": "${{ request.requestId }}", "ready": "${{ actions.setup.success }}"})]}]},
                 "unused": {"prepare": [write(self.root / "unused", {})], "nodes": []}}}
         flow = self.flow(spec)
         flow.initialize()
@@ -65,7 +65,7 @@ class FlowTests(unittest.TestCase):
         spec = {"entries": {"direct_flow": {
             "initialization": [{"type": "execute_command", "target": "missing-init-tool"}],
             "finalization": [{"type": "execute_command", "target": "missing-final-tool"},
-                             write(self.root / "finished", "{entry[status]}")]}}}
+                             write(self.root / "finished", "${{ entry.status }}")]}}}
         with self.assertRaisesRegex(ValueError, "missing-init-tool"):
             _execute_flow(self.flow(spec), lambda: self.fail("body must not run"))
         self.assertEqual(json.loads((self.root / "finished").read_text()), "failed")
@@ -77,7 +77,7 @@ class FlowTests(unittest.TestCase):
         import sys
         import time
         ready = self.root / "ready"
-        spec = {"entries": {"direct_flow": {"finalization": [write(self.root / "cleanup", "{entry[status]}")]}},
+        spec = {"entries": {"direct_flow": {"finalization": [write(self.root / "cleanup", "${{ entry.status }}")]}},
                 "pipeline": {"demo": {"nodes": [{"name": "slow", "before_run": [{"type": "execute_command",
                 "target": sys.executable, "args": ["-c", f"from pathlib import Path; import time; Path({str(ready)!r}).touch(); time.sleep(30)"]}]}]}}}
         (self.root / "spec.yaml").write_text(yaml.safe_dump(spec))
@@ -111,34 +111,30 @@ class FlowTests(unittest.TestCase):
         self.check_master_flow_session(use_environment=True)
 
     def test_cel_master_flow_real_http_snapshot_handoff(self):
-        self.check_master_flow_session(use_environment=False, cel=True)
+        self.check_master_flow_session(use_environment=False, with_registry=True)
 
-    def check_master_flow_session(self, *, use_environment, cel=False):
+    def check_master_flow_session(self, *, use_environment, with_registry=False):
         root = self.root
         def notify(phase):
             return {"type": "send_http_request", "method": "post",
-                    "url": "{session[server]}/test/action",
-                    "header": {"Authorization": "Bearer {session[token]}", "Content-Type": "application/json"},
-                    "body": {"phase": phase, "server": "{session[server]}"}}
+                    "url": "${{ session.server }}/test/action",
+                    "header": {"Authorization": "Bearer ${{ session.token }}", "Content-Type": "application/json"},
+                    "body": {"phase": phase, "server": "${{ session.server }}"}}
 
         spec = {"entries": {"master_flow": {"initialization": [write(root / "init", {}), notify("initialization")],
-                "finalization": [write(root / "final", "{entry[status]}"), notify("finalization")]}},
+                "finalization": [write(root / "final", "${{ entry.status }}"), notify("finalization")]}},
                 "pipeline": {"demo": {"prepare": [write(root / "prepared", {}), notify("prepare")],
                 "params": {"name": {"type": "string"}}, "nodes": [{"name": "save",
-                "before_run": [write("{session[working_dir]}/{params[name]}.json", "{request[requestId]}"), notify("node")]}]}}}
-        spec["pipeline"]["demo"]["nodes"][0]["before_run"].append(write(str(root / "claimed-outputs.json"), "{request[artifacts]}"))
-        if cel:
-            from mu.spec_migration import migrate_spec
-            report = migrate_spec(spec)
-            self.assertFalse(report["issues"])
-            spec = report["spec"]
+                "before_run": [write("${{ session.working_dir }}/${{ params.name }}.json", "${{ request.requestId }}"), notify("node")]}]}}}
+        spec["pipeline"]["demo"]["nodes"][0]["before_run"].append(write(str(root / "claimed-outputs.json"), "${{ request.artifacts }}"))
+        if with_registry:
             spec["pipeline"]["demo"]["nodes"][0]["before_run"].append(write(str(root / "registry.json"), "${{ Request.Registry.N }}"))
         events, selections = [], []
         batches = [[{"requestId": str(i), "specSlug": "demo", "pipelineName": "demo", "assignmentVersion": 1, "payload": {"name": str(i)}}] for i in (1, 2)] + [[]]
         for batch in batches:
             for item in batch:
                 item["artifacts"] = [{"id": "input-" + item["requestId"], "handler": "s3", "connectionId": "r2", "objectKey": "object", "name": "input.txt", "contentType": "text/plain", "size": 3, "createdAt": 1}]
-        if cel:
+        if with_registry:
             for batch in batches:
                 for item in batch:
                     item["registryContext"] = {"Request": {"N": int(item["requestId"])*10}}
@@ -178,8 +174,8 @@ class FlowTests(unittest.TestCase):
         self.assertEqual(result.exit_code, 0, result.output)
         self.assertEqual(json.loads((root / "claimed-outputs.json").read_text())[0]["id"],"input-2")
         self.assertEqual(len(selections), 3)
-        self.assertTrue(all(s["expressionEngine"] == ("cel-v1" if cel else "python-format-v1") for s in selections))
-        if cel: self.assertEqual(json.loads((root / "registry.json").read_text()),20)
+        self.assertTrue(all(s["expressionEngine"] == "cel-v1" for s in selections))
+        if with_registry: self.assertEqual(json.loads((root / "registry.json").read_text()),20)
         self.assertIn("No matching requests", result.output)
         self.assertIn("Unit worker: offline", result.output)
         self.assertTrue(all(s["byStatus"] == ["waiting"] and s["byPipeline"] == ["demo", "other"] for s in selections))

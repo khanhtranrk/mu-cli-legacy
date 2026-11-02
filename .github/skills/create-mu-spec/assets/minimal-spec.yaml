@@ -1,3 +1,4 @@
+expression_engine: cel-v1
 entries: {}
 
 workloads:
@@ -10,8 +11,8 @@ workloads:
     target: python
     args:
       - example.py
-      - "{params[input]}"
-      - "{params[output]}"
+      - "${{ params.input }}"
+      - "${{ params.output }}"
     units: 0
 
 pipeline:
@@ -29,11 +30,11 @@ pipeline:
           - type: execute_workload
             workload: example-workload
             args:
-              input: "{params[input]}"
-              output: "{params[output]}"
+              input: "${{ params.input }}"
+              output: "${{ params.output }}"
         after_run: []
         postcondition:
           operator: file_exists
-          path: "{params[output]}"
+          path: "${{ params.output }}"
         finally: []
         depends_on: []

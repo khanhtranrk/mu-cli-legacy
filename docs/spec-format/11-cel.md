@@ -1,6 +1,6 @@
-# Versioned CEL Specs (phase 5)
+# CEL Spec expressions
 
-Specs opt in at the root:
+CEL is the only Spec expression engine. Declare it explicitly in examples:
 
 ```yaml
 expression_engine: cel-v1
@@ -20,10 +20,9 @@ pipeline:
               count: '${{ params.count }}'
 ```
 
-Without this declaration, or with `expression_engine: python-format-v1`, the
-existing `{params[name]}` renderer remains unchanged. Unknown engine versions
-fail before lifecycle execution. The legacy `processors` runtime is unchanged.
-There is no automatic migration of saved Specs or queued Requests.
+Omitting `expression_engine` also selects `cel-v1`. Any other declared engine,
+including `python-format-v1`, fails before lifecycle execution. The old formatter
+and migration command/UI have been removed. All bundled examples use CEL.
 
 ## Expression contract
 
@@ -92,37 +91,14 @@ The identical `tests/fixtures/cel-v1.json` files in both independent repositorie
 are the shared conformance vectors; update both together and run both suites.
 They cover the supported profile's common behavior, not the full CEL standard.
 
-## Explicit migration
+## Worker contract
 
-```sh
-uv run mu spec migrate-cel spec.yaml                    # report only
-uv run mu spec migrate-cel spec.yaml --output spec-cel.yaml
-```
-
-The source is untouched; existing output files are never overwritten. Recognized
-`{root[key][nested]}` placeholders become `${{ root["key"]["nested"] }}`. Literal
-braces/JSON strings, preexisting CEL, dynamic structural names/keys, and
-pipeline prepare depending on pipeline context require manual work; these block
-candidate writing. JSON data fields such as `content.name`, `body.name`,
-argument/default/context values are not structural identifiers. Dynamic keys are
-converted recursively only in `write_json.content` and `send_http_request.body`,
-where runtime `render_payload` renders keys. Keys in args/context/default/header
-maps remain literal and dynamic keys there require manual work. Definition names
-that happen to be `context`, `args`, etc. retain their structural namespace role.
-Key collisions after conversion block migration. The identical
-`tests/fixtures/spec-migration-v1.json` fixtures cover this classification in both
-repositories.
-
-Scalar interpolation changes, strict missing-key behavior,
-removal of recursive rendering, types and YAML formatting/comments need review.
-
-MasterFlow's **Preview CEL migration** creates a YAML draft and report. Review and
-smoke-test it before **Save changes**; saves with stale source YAML are rejected.
-The phase does not convert existing media examples automatically. New workers
-advertise `expressionEngine` when claiming; the server rejects an engine mismatch
-before any Request changes status. Bootstrap also requires the
-`X-Mu-Expression-Engines: python-format-v1,cel-v1` capability header for CEL
-Specs, so old workers cannot run their entry initialization. Upgrade/restart workers when changing engines.
+Workers advertise `X-Mu-Expression-Engines: cel-v1` on Spec download and send
+`expressionEngine: cel-v1` when claiming. MasterFlow rejects missing or unsupported
+capabilities before assignment. Update and restart workers together with the server.
+Saved Spec YAML must use `${{ expression }}`; old single-brace placeholders are
+literal text and are never evaluated. Existing Request payloads and Registry
+snapshots remain literal captured data.
 
 ### Artifact Registry references
 

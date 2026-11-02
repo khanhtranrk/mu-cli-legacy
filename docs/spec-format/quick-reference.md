@@ -4,6 +4,7 @@
 
 | Key | Type | Description |
 |---|---|---|
+| `expression_engine` | `cel-v1` | Only supported engine; also the default when omitted |
 | `entries` | mapping | `direct_flow` / `master_flow` lifecycle actions |
 | `pipeline.<name>.prepare` | action list | Lazy setup once per used pipeline |
 | `workloads` | mapping | Subprocess definitions |
@@ -25,7 +26,6 @@
 | Key | Type | Default | Description |
 |---|---|---:|---|
 | `type` | string | required | Action type |
-| `action` | string | alias for `type` | Alias name |
 | `context` | mapping | `{}` | Additional context |
 | `skip_if` | condition | absent | Skip the action when true |
 | `precondition` | condition | absent | Run only when true |
@@ -73,6 +73,7 @@ Operator names use snake_case without aliases.
 
 | Operator | Fields | Default `expected` | True when |
 |---|---|---:|---|
+| `cel` | `expression`, optional boolean `expected` | true | Whole-value CEL returns the expected boolean |
 | `and` | `props` | true | All props are true |
 | `or` | `props` | true | At least one prop is true |
 | `file_exists` | `path` | true | The path is an existing file |
@@ -87,17 +88,17 @@ Operator names use snake_case without aliases.
 
 | Key | Example | Layer |
 |---|---|---|
-| `sys.cache_dir` | `{sys[cache_dir]}` | Base |
-| `sys.models` | `{sys[models][model.gguf]}` | Base |
-| `session.working_dir` | `{session[working_dir]}` | Base |
-| `session.unit_name` | `{session[unit_name]}` | Base |
-| `session.output_dir` | `{session[output_dir]}` | Base |
-| `session.cache_dir` | `{session[cache_dir]}` | Base |
-| `params` | `{params[name]}` | Pipeline/workload |
-| `node.name/status/total_units` | `{node[status]}` | Node |
-| `node.device.family/index` | `{node[device][family]}` | Node; CPU uses `cpu` / `null` |
-| `schedule.device_family` | `{schedule[device_family]}` | GPU node |
-| `schedule.device_index` | `{schedule[device_index]}` | GPU node |
+| `sys.cache_dir` | `${{ sys.cache_dir }}` | Base |
+| `sys.models` | `${{ sys.models["model.gguf"] }}` | Base |
+| `session.working_dir` | `${{ session.working_dir }}` | Base |
+| `session.unit_name` | `${{ session.unit_name }}` | Base |
+| `session.output_dir` | `${{ session.output_dir }}` | Base |
+| `session.cache_dir` | `${{ session.cache_dir }}` | Base |
+| `params` | `${{ params.name }}` | Pipeline/workload |
+| `node.name/status/total_units` | `${{ node.status }}` | Node |
+| `node.device.family/index` | `${{ node.device.family }}` | Node; CPU uses `cpu` / `null` |
+| `schedule.device_family` | `${{ schedule.device_family }}` | GPU node |
+| `schedule.device_index` | `${{ schedule.device_index }}` | GPU node |
 
 ## Node status
 
@@ -168,3 +169,5 @@ uv run mu master-flow run --help
 - `finally` is used for cleanup/failure notification and has `ignore_error` if notification must not make the pipeline fail.
 - `units: 0` for workloads that do not use a GPU.
 - Do not commit an API token in `header`.
+
+CEL renders once. Request inputs are literal JSON; missing defaults execute in the caller context. Captured Registry values are under `CreationSpace.Registry`, `Session.Registry`, `Request.Registry`. See [CEL expressions](11-cel.md).

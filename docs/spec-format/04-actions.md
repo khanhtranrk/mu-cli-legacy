@@ -39,8 +39,8 @@ run:
   - type: execute_workload
     workload: transcribe
     args:
-      input: "{params[input]}"
-      output: "{params[output]}"
+      input: "${{ params.input }}"
+      output: "${{ params.output }}"
 ```
 
 `workload` must be a literal name defined in `workloads`; templates are not
@@ -97,7 +97,7 @@ Sends an HTTP request:
     Content-Type: application/json
   body:
     status: running
-    name: "{params[name]}"
+    name: "${{ params.name }}"
   save_state: running
   ignore_error: true
 ```
@@ -121,18 +121,18 @@ With `response_file`, Mu creates parent directories, streams to a uniquely named
 
 ```yaml
 - type: send_http_request
-  url: "{actions[upload][body][uploadUrl]}"
+  url: "${{ actions.upload.body.uploadUrl }}"
   method: post
   header:
     Content-Type: audio/wav
-  body_file: "{session[output_dir]}/song.wav"
+  body_file: "${{ session.output_dir }}/song.wav"
   timeout: 120
   save_state: stored_file
 - type: send_http_request
-  url: "{session[server]}/api/requests/artifacts/download?requestId={request[requestId]}&artifactId=audio"
+  url: "${{ session.server }}/api/requests/artifacts/download?requestId=${{ request.requestId }}&artifactId=audio"
   header:
-    Authorization: "Bearer {session[token]}"
-  response_file: "{session[output_dir]}/downloaded.wav"
+    Authorization: "Bearer ${{ session.token }}"
+  response_file: "${{ session.output_dir }}/downloaded.wav"
   timeout: 120
   save_state: downloaded
 ```
@@ -148,11 +148,11 @@ Writes a JSON document:
 
 ```yaml
 - type: write_json
-  path: "{session[cache_dir]}/requests/{params[name]}.json"
+  path: "${{ session.cache_dir }}/requests/${{ params.name }}.json"
   content:
-    name: "{params[name]}"
-    style: "{params[style]}"
-    lyrics: "{params[lyrics]}"
+    name: "${{ params.name }}"
+    style: "${{ params.style }}"
+    lyrics: "${{ params.lyrics }}"
     nested:
       enabled: true
 ```
@@ -167,7 +167,7 @@ Creates a directory and any required parents:
 
 ```yaml
 - type: create_dir
-  path: "{session[output_dir]}/{params[name]}"
+  path: "${{ session.output_dir }}/${{ params.name }}"
 ```
 
 Mu does not create a file. The action succeeds if the path already exists as a directory. If a file exists at the path, `mkdir` fails.
@@ -228,17 +228,17 @@ if an error or postcondition is false:
 ```yaml
 before_run:
   - type: create_dir
-    path: "{session[cache_dir]}/requests/{params[name]}"
+    path: "${{ session.cache_dir }}/requests/${{ params.name }}"
   - type: write_json
-    path: "{session[cache_dir]}/requests/{params[name]}/request.json"
+    path: "${{ session.cache_dir }}/requests/${{ params.name }}/request.json"
     content:
-      name: "{params[name]}"
-      style: "{params[style]}"
+      name: "${{ params.name }}"
+      style: "${{ params.style }}"
 run:
   - type: execute_workload
     workload: yue2
     args:
-      request: "{session[cache_dir]}/requests/{params[name]}/request.json"
+      request: "${{ session.cache_dir }}/requests/${{ params.name }}/request.json"
 after_run:
   - type: send_http_request
     url: "https://example.invalid/notify"
@@ -273,7 +273,7 @@ context at `actions[name]`; repeated names overwrite earlier results.
 - type: write_json
   path: version.json
   content:
-    stdout: "{actions[python_version][stdout]}"
+    stdout: "${{ actions.python_version.stdout }}"
 ```
 
 Command result:
@@ -308,7 +308,7 @@ write state. Invalid declarations or rendering failures before execution do
 not create execution results.
 
 Later actions and `finally` in the same node can read saved results with
-`{actions[name][stdout]}` or `{actions[name][body]}`. Node/request contexts
+`${{ actions.name.stdout }}` or `${{ actions.name.body }}`. Node/request contexts
 remain isolated. Prepare results are available to later prepare actions and are
 deep-copied into each request of that pipeline. Entry results are inherited by
 pipeline preparation.

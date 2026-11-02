@@ -118,7 +118,7 @@ class HttpFileTests(unittest.TestCase):
         self.assertNotIn('X-Mu-Assignment-Version', captured[-1])
         (self.root/'file').write_bytes(b'bytes')
         self.context['actions']['issue'] = {'body': {'url': target, 'method': 'PUT', 'headers': {'Content-Type': 'text/plain'}}}
-        result = self.action(url='{actions[issue][body][url]}', method='{actions[issue][body][method]}', header='{actions[issue][body][headers]}', body_file='file')
+        result = self.action(url='${{ actions.issue.body.url }}', method='${{ actions.issue.body.method }}', header='${{ actions.issue.body.headers }}', body_file='file')
         self.assertEqual(result['status_code'], 204); self.assertIsNone(result['body'])
         self.assertNotIn('Authorization', captured[-1]); self.assertNotIn('X-Mu-Assignment-Version', captured[-1])
         self.assertEqual(captured[-1]['Content-Length'], '5')

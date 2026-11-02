@@ -5,6 +5,8 @@ from pathlib import Path
 import subprocess
 from typing import Any, Callable
 
+from mu.expressions import render as _render
+
 
 class ValidationError(ValueError):
     """A validation declaration is malformed or uses an unknown validator."""
@@ -102,23 +104,3 @@ def validate_action_checks(
         except ValidationError as exc:
             raise ValidationError(f"validate[{index}]: {exc}") from exc
     return results
-
-
-def _render(value: Any, context: dict[str, Any]) -> Any:
-    if isinstance(value, list):
-        return [_render(item, context) for item in value]
-    if not isinstance(value, str):
-        return value
-    import re
-
-    def replace(match: re.Match[str]) -> str:
-        expression = match.group(1)
-        if "[" in expression and expression.endswith("]"):
-            root, key = expression[:-1].split("[", 1)
-            current = context.get(root, {})
-            value = current.get(key, "") if isinstance(current, dict) else ""
-        else:
-            value = context.get(expression, "")
-        return str(value)
-
-    return re.sub(r"\{([^{}]+)\}", replace, value)

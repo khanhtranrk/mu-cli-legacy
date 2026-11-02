@@ -62,7 +62,7 @@ class EventTests(unittest.TestCase):
         self.assertEqual([tag for _, _, tag in seen], ["root", "pipeline", "node"])
         # Actual routines and actions are executed without generating nested lifecycle events.
         with tempfile.TemporaryDirectory() as directory:
-            spec = {"routines": {"r": {"actions": [{"type": "write_json", "path": str(Path(directory)/"out"), "content": "{event[name]}"}]}},
+            spec = {"routines": {"r": {"actions": [{"type": "write_json", "path": str(Path(directory)/"out"), "content": "${{ event.name }}"}]}},
                     "events": [{"on": "node_finished", "do": [{"type": "execute_routine", "routine": "r"}]}],
                     "pipeline": {"p": {"nodes": [{"name": "a"}]}}}
             rt.execute_pipelines(spec, [("p", {})], {}, [], Path(directory))
@@ -110,7 +110,7 @@ class EventTests(unittest.TestCase):
                     reports.append(rt.render_payload(item["body"], context))
                 if "save_state" in item:
                     context.setdefault("actions", {})[item["save_state"]] = {"success": True, "body": {
-                        "uploadUrl": "https://storage.invalid/upload", "uploadId": "receipt", "storageId": "file"}}
+                        "uploadUrl": "https://storage.invalid/upload", "uploadId": "receipt", "method": "put", "headers": {"Content-Type": "text/plain"}}}
                 return
             return original(item, context, *args, **kwargs)
         def workload(spec, name, supplied, context, device, workdir):

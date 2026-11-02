@@ -16,12 +16,13 @@ This directory explains the YAML/JSON structure understood by Mu, using the spec
 8. [08 – Complete examples, from small to large](08-complete-example.md)
 9. [Routines and file inspection](09-routines.md)
 10. [Lifecycle events](10-events.md)
-11. [Versioned CEL Specs and migration](11-cel.md)
+11. [CEL Spec expressions](11-cel.md)
 12. [Quick-reference table](quick-reference.md)
 
 ## A complete spec at a glance
 
 ```yaml
+expression_engine: cel-v1
 entries:
   direct_flow:
     initialization:
@@ -39,8 +40,8 @@ workloads:
         type: string
     target: cp
     args:
-      - "{params[source]}"
-      - "{params[destination]}"
+      - "${{ params.source }}"
+      - "${{ params.destination }}"
     units: 0
 
 pipeline:
@@ -54,16 +55,16 @@ pipeline:
       - name: copy
         before_run:
           - type: create_dir
-            path: "{session[working_dir]}/output"
+            path: "${{ session.working_dir }}/output"
         run:
           - type: execute_workload
             workload: make-copy
             args:
-              source: "{params[source]}"
-              destination: "{params[destination]}"
+              source: "${{ params.source }}"
+              destination: "${{ params.destination }}"
         postcondition:
           operator: file_exists
-          path: "{params[destination]}"
+          path: "${{ params.destination }}"
 ```
 
 The data tree above means:
@@ -88,17 +89,17 @@ The `target` and `args` properties create a subprocess argv. Mu does not join co
 
 The spec root is a mapping/object. YAML can be read as JSON when `safe_load` produces the corresponding string, number, boolean, list, and mapping values. The keys shown below are valid in JSON as well.
 
-### 3. Templates use structured-context `format` syntax
+### 3. Templates use CEL
 
 For example:
 
 ```yaml
 args:
-  - "{params[input]}"
-  - "{session[output_dir]}"
+  - "${{ params.input }}"
+  - "${{ session.output_dir }}"
 ```
 
-Mu resolves values using `context[root][key]`. A string can contain multiple placeholders, but a placeholder that constitutes the entire string can return a number or boolean during rendering; the system does not convert it to a string first. See [Context and templates](02-context-and-templates.md).
+Mu evaluates expressions in the current JSON context using CEL. A string can contain multiple placeholders, but a placeholder that constitutes the entire string can return a number or boolean during rendering; the system does not convert it to a string first. See [Context and templates](02-context-and-templates.md).
 
 ### 4. Missing parameters are configuration errors
 

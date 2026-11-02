@@ -115,7 +115,7 @@ entries:
   direct_flow:
     initialization:
       - type: create_dir
-        path: "{session[working_dir]}/cache/models"
+        path: "${{ session.working_dir }}/cache/models"
 
     finalization: []
 workloads:
@@ -124,7 +124,7 @@ workloads:
       source: {type: string}
       destination: {type: string}
     target: cp
-    args: ["{params[source]}", "{params[destination]}"]
+    args: ["${{ params.source }}", "${{ params.destination }}"]
 
 pipeline:
   demo:
@@ -137,8 +137,8 @@ pipeline:
           - type: execute_workload
             workload: copy
             args:
-              source: "{params[source]}"
-              destination: "{params[destination]}"
+              source: "${{ params.source }}"
+              destination: "${{ params.destination }}"
         finally:
           - type: execute_command
             target: python
@@ -149,8 +149,8 @@ The example contains a syntax error: the final workload `args` entry must close 
 
 ```yaml
 args:
-  - "{params[source]}"
-  - "{params[destination]}"
+  - "${{ params.source }}"
+  - "${{ params.destination }}"
 ```
 
 ## How spec-level validation differs from a node postcondition

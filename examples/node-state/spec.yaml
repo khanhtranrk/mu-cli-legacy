@@ -1,3 +1,4 @@
+expression_engine: cel-v1
 # Run with: uv run mu run --spec examples/node-state/spec.yaml --request demo,examples/node-state/request.yaml
 pipeline:
   demo:
@@ -13,10 +14,10 @@ pipeline:
               operator: node_state
               target: [status]
               expected: success
-            path: "{session[output_dir]}/node-state.json"
+            path: "${{ session.output_dir }}/node-state.json"
             content:
-              name: "{node[name]}"
-              status: "{node[status]}"
+              name: "${{ node.name }}"
+              status: "${{ node.status }}"
       - name: optional_step
         ignore_error: true
         before_run:
@@ -29,9 +30,9 @@ pipeline:
               operator: node_state
               target: [status]
               expected: failed
-            path: "{session[output_dir]}/ignored-node.json"
+            path: "${{ session.output_dir }}/ignored-node.json"
             content:
-              status: "{node[status]}"
+              status: "${{ node.status }}"
       - name: continue_pipeline
         depends_on:
           - optional_step

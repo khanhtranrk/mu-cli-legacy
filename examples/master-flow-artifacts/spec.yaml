@@ -1,3 +1,4 @@
+expression_engine: cel-v1
 # Store in MasterFlow, create a disposable demo request, then run:
 # uv run mu master-flow run <spec-slug> --unit-id artifact-demo
 # Configure MU_MASTER_FLOW_SERVER and MU_MASTER_FLOW_TOKEN outside the spec.
@@ -12,69 +13,69 @@ pipeline:
     nodes:
       - name: artifact-demo
         context:
-          artifact_path: "{session[output_dir]}/{request[requestId]}/result.json"
-          downloaded_path: "{session[output_dir]}/{request[requestId]}/downloaded.json"
+          artifact_path: "${{ session.output_dir }}/${{ request.requestId }}/result.json"
+          downloaded_path: "${{ session.output_dir }}/${{ request.requestId }}/downloaded.json"
         before_run:
           - type: write_json
-            path: "{artifact_path}"
+            path: "${{ artifact_path }}"
             content:
               message: Hello from Mu
-              requestId: "{request[requestId]}"
+              requestId: "${{ request.requestId }}"
           - type: execute_command
             target: python
             args:
               - -c
               - "import hashlib, sys; print(hashlib.file_digest(open(sys.argv[1], 'rb'), 'sha256').hexdigest(), end='')"
-              - "{artifact_path}"
+              - "${{ artifact_path }}"
             save_state: file_hash
           - type: execute_command
             target: python
             args:
               - -c
               - "import os, sys; print(os.path.getsize(sys.argv[1]), end='')"
-              - "{artifact_path}"
+              - "${{ artifact_path }}"
             save_state: file_size
           - type: send_http_request
-            url: "{session[server]}/api/requests/artifacts/upload-url"
+            url: "${{ session.server }}/api/requests/artifacts/upload-url"
             method: post
             header:
-              Authorization: "Bearer {session[token]}"
+              Authorization: "Bearer ${{ session.token }}"
               Content-Type: application/json
             body:
-              requestId: "{request[requestId]}"
+              requestId: "${{ request.requestId }}"
               artifactId: demo-output
-              sha256: "{actions[file_hash][stdout]}"
-              size: "{actions[file_size][stdout]}"
+              sha256: "${{ actions.file_hash.stdout }}"
+              size: "${{ int(actions.file_size.stdout) }}"
               contentType: application/json
             save_state: upload
           - type: send_http_request
-            url: "{actions[upload][body][uploadUrl]}"
-            method: "{actions[upload][body][method]}"
-            header: "{actions[upload][body][headers]}"
-            body_file: "{artifact_path}"
+            url: "${{ actions.upload.body.uploadUrl }}"
+            method: "${{ actions.upload.body.method }}"
+            header: "${{ actions.upload.body.headers }}"
+            body_file: "${{ artifact_path }}"
             timeout: 120
             save_state: stored
           - type: send_http_request
-            url: "{session[server]}/api/requests/artifacts/complete"
+            url: "${{ session.server }}/api/requests/artifacts/complete"
             method: post
             header:
-              Authorization: "Bearer {session[token]}"
+              Authorization: "Bearer ${{ session.token }}"
               Content-Type: application/json
             body:
-              requestId: "{request[requestId]}"
-              uploadId: "{actions[upload][body][uploadId]}"
+              requestId: "${{ request.requestId }}"
+              uploadId: "${{ actions.upload.body.uploadId }}"
               name: result.json
               nodeName: artifact-demo
               label: Demo output
             save_state: registered
           - type: send_http_request
-            url: "{session[server]}/api/requests/artifacts/download-url?requestId={request[requestId]}&artifactId=demo-output"
+            url: "${{ session.server }}/api/requests/artifacts/download-url?requestId=${{ request.requestId }}&artifactId=demo-output"
             header:
-              Authorization: "Bearer {session[token]}"
+              Authorization: "Bearer ${{ session.token }}"
             save_state: download_link
           - type: send_http_request
-            url: "{actions[download_link][body][url]}"
-            response_file: "{downloaded_path}"
+            url: "${{ actions.download_link.body.url }}"
+            response_file: "${{ downloaded_path }}"
             timeout: 120
             save_state: downloaded
           - type: execute_command
@@ -82,5 +83,5 @@ pipeline:
             args:
               - -c
               - "from pathlib import Path; import sys; assert Path(sys.argv[1]).read_bytes() == Path(sys.argv[2]).read_bytes()"
-              - "{artifact_path}"
-              - "{downloaded_path}"
+              - "${{ artifact_path }}"
+              - "${{ downloaded_path }}"

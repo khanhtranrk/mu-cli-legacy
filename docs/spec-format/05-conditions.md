@@ -4,7 +4,7 @@ Actions and nodes use the same condition system. A condition is a mapping with a
 
 ```yaml
 operator: file_exists
-path: "{params[output]}"
+path: "${{ params.output }}"
 expected: true
 ```
 
@@ -57,7 +57,7 @@ Returns true only if the path exists and is a file:
 
 ```yaml
 operator: file_exists
-path: "{session[output_dir]}/{params[name]}/cover.png"
+path: "${{ session.output_dir }}/${{ params.name }}/cover.png"
 expected: true
 ```
 
@@ -71,7 +71,7 @@ Returns true only if the path exists and is a directory:
 
 ```yaml
 operator: folder_exists
-path: "{session[output_dir]}/{params[name]}"
+path: "${{ session.output_dir }}/${{ params.name }}"
 ```
 
 - A symlink to a directory is usually treated as a directory.
@@ -83,7 +83,7 @@ Returns true for any existing object: a file, folder, or valid symlink:
 
 ```yaml
 operator: path_exists
-path: "{params[output]}"
+path: "${{ params.output }}"
 ```
 
 Use `file_exists` or `folder_exists` when the object type must be constrained.
@@ -94,7 +94,7 @@ Runs a command and compares its exit code:
 
 ```yaml
 operator: exit_code
-target: ["{sys[cache_dir]}/bin/yue-synth", --help]
+target: ["${{ sys.cache_dir }}/bin/yue-synth", --help]
 expected: 0
 ```
 
@@ -176,7 +176,7 @@ path: output/demo.wav
 That is equivalent to:
 
 ```yaml
-path: "{session[working_dir]}/output/demo.wav"
+path: "${{ session.working_dir }}/output/demo.wav"
 ```
 
 Use an absolute template when a spec may run in a different environment or be started from an unexpected directory.
@@ -189,13 +189,13 @@ Use an absolute template when a spec may run in a different environment or be st
   args: [convert.py]
   skip_if:
     operator: file_exists
-    path: "{params[output]}"
+    path: "${{ params.output }}"
   precondition:
     operator: folder_exists
-    path: "{params[input_dir]}"
+    path: "${{ params.input_dir }}"
   postcondition:
     operator: file_exists
-    path: "{params[output]}"
+    path: "${{ params.output }}"
 ```
 
 The sequence is:
@@ -211,13 +211,13 @@ The sequence is:
 - name: generate
   skip_if:
     operator: file_exists
-    path: "{params[output]}"
+    path: "${{ params.output }}"
   precondition:
     operator: exit_code
     target: [generator, --help]
   postcondition:
     operator: file_exists
-    path: "{params[output]}"
+    path: "${{ params.output }}"
 ```
 
 For details, see [Pipelines and nodes](06-pipelines-and-nodes.md).
@@ -286,3 +286,15 @@ Use `node_state` inside nodes. Dependencies require success automatically and
 do not evaluate condition operators.
 No new node state is stored by this operator, and it cannot select another
 node. See [the executable example](../../examples/node-state/spec.yaml).
+
+## CEL
+
+```yaml
+operator: cel
+expression: '${{ params.width > 0 && params.width <= 4096 }}'
+expected: true
+```
+
+`expression` must be a whole-value CEL template returning a boolean. `expected`
+is an optional boolean, defaulting to true. Missing references and type mismatches
+are errors. The same [bounded CEL profile](11-cel.md) applies to other Spec fields.

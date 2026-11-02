@@ -5,6 +5,8 @@ import json
 import subprocess
 from typing import Any, Callable
 
+from mu.expressions import render as _render
+
 
 class ActionError(ValueError):
     """An action declaration is invalid or failed while running."""
@@ -106,42 +108,3 @@ def write_json_from_context(action: dict[str, Any], context: dict[str, Any]) -> 
         path.write_text(json.dumps(rendered, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     except OSError as exc:
         raise ActionError(f"write_json_from_context could not write {path}: {exc}") from exc
-
-
-def _render(value: Any, context: dict[str, Any]) -> Any:
-    """Resolve the simple {name} and {request[field]} placeholders in strings."""
-    if isinstance(value, dict):
-        return {key: _render(item, context) for key, item in value.items()}
-    if isinstance(value, list):
-        return [_render(item, context) for item in value]
-    if not isinstance(value, str):
-        return value
-    import re
-
-    def lookup(expression: str) -> tuple[bool, Any]:
-        if "[" in expression and expression.endswith("]"):
-            root, key = expression[:-1].split("[", 1)
-            current = context.get(root)
-            if isinstance(current, dict) and key in current:
-                return True, current[key]
-            return False, None
-        return (True, context[expression]) if expression in context else (False, None)
-
-    exact = re.fullmatch(r"\{([^{}]+)\}", value)
-    if exact:
-        found, resolved = lookup(exact.group(1))
-        if found:
-            return resolved
-
-    def replace(match: re.Match[str]) -> str:
-        expression = match.group(1)
-        found, resolved = lookup(expression)
-        return str(resolved) if found else match.group(0)
-
-    rendered = value
-    for _ in range(8):
-        updated = re.sub(r"\{([^{}]+)\}", replace, rendered)
-        if updated == rendered:
-            break
-        rendered = updated
-    return rendered

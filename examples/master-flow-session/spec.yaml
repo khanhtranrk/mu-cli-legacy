@@ -1,27 +1,28 @@
+expression_engine: cel-v1
 # Store this spec on MasterFlow and run: mu master-flow run <spec-slug>
 # Configure MU_MASTER_FLOW_SERVER and MU_MASTER_FLOW_TOKEN outside the spec.
 entries:
   master_flow:
     initialization:
       - type: send_http_request
-        url: "{session[server]}/api/notifications/send"
+        url: "${{ session.server }}/api/notifications/send"
         method: post
         header:
-          Authorization: "Bearer {session[token]}"
+          Authorization: "Bearer ${{ session.token }}"
           Content-Type: application/json
         body:
           title: Worker ready
-          message: "Unit {session[unit_id]} initialized"
+          message: "Unit ${{ session.unit_id }} initialized"
     finalization:
       - type: send_http_request
-        url: "{session[server]}/api/notifications/send"
+        url: "${{ session.server }}/api/notifications/send"
         method: post
         header:
-          Authorization: "Bearer {session[token]}"
+          Authorization: "Bearer ${{ session.token }}"
           Content-Type: application/json
         body:
           title: Worker finished
-          message: "Unit {session[unit_id]} finished: {entry[status]}"
+          message: "Unit ${{ session.unit_id }} finished: ${{ entry.status }}"
 pipeline:
   demo:
     params: {}

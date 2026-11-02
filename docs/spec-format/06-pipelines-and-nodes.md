@@ -9,14 +9,14 @@ pipeline:
       input: {type: string}
       output: {type: string}
     context:
-      work: "{session[cache_dir]}/transcribe"
+      work: "${{ session.cache_dir }}/transcribe"
     nodes:
       - name: prepare
         run:
           - type: execute_workload
             workload: mkdir
             args:
-              path: "{params[output]}"
+              path: "${{ params.output }}"
 ```
 
 ### `prepare`
@@ -41,7 +41,7 @@ A list of nodes. Every node in a pipeline request must have a unique, non-empty 
 ```yaml
 - name: generate-song
   context:
-    label: "{params[name]}"
+    label: "${{ params.name }}"
   ignore_error: false
   skip_if: {...}
   precondition: {...}
@@ -111,11 +111,11 @@ A sequential list of actions that runs before `run`:
 ```yaml
 before_run:
   - type: create_dir
-    path: "{params[output_dir]}"
+    path: "${{ params.output_dir }}"
   - type: write_json
-    path: "{params[request]}"
+    path: "${{ params.request }}"
     content:
-      prompt: "{params[prompt]}"
+      prompt: "${{ params.prompt }}"
 ```
 
 If an action fails and its error is not ignored:
@@ -133,8 +133,8 @@ run:
   - type: execute_workload
     workload: transcribe
     args:
-      input: "{params[input]}"
-      output: "{params[output]}"
+      input: "${{ params.input }}"
+      output: "${{ params.output }}"
 ```
 
 Rules:
@@ -267,37 +267,37 @@ pipeline:
       width: {type: number, default: 1024}
       height: {type: number, default: 1024}
     context:
-      work: "{session[output_dir]}/{params[name]}"
+      work: "${{ session.output_dir }}/${{ params.name }}"
     nodes:
       - name: output-dir
         run:
           - type: execute_workload
             workload: mkdir
             args:
-              path: "{session[output_dir]}/{params[name]}"
+              path: "${{ session.output_dir }}/${{ params.name }}"
 
       - name: render
         depends_on:
           - output-dir
         skip_if:
           operator: file_exists
-          path: "{session[output_dir]}/{params[name]}/cover.png"
+          path: "${{ session.output_dir }}/${{ params.name }}/cover.png"
         before_run:
           - type: write_json
-            path: "{session[cache_dir]}/{params[name]}.json"
+            path: "${{ session.cache_dir }}/${{ params.name }}.json"
             content:
-              prompt: "{params[prompt]}"
+              prompt: "${{ params.prompt }}"
         run:
           - type: execute_workload
             workload: render-image
             args:
-              request: "{session[cache_dir]}/{params[name]}.json"
-              output: "{session[output_dir]}/{params[name]}/cover.png"
-              width: "{params[width]}"
-              height: "{params[height]}"
+              request: "${{ session.cache_dir }}/${{ params.name }}.json"
+              output: "${{ session.output_dir }}/${{ params.name }}/cover.png"
+              width: "${{ params.width }}"
+              height: "${{ params.height }}"
         postcondition:
           operator: file_exists
-          path: "{session[output_dir]}/{params[name]}/cover.png"
+          path: "${{ session.output_dir }}/${{ params.name }}/cover.png"
         finally:
           - type: send_http_request
             ignore_error: true
@@ -305,7 +305,7 @@ pipeline:
             method: post
             header: {}
             body:
-              status: "{node[status]}"
+              status: "${{ node.status }}"
 ```
 
 ## Node `ignore_error`

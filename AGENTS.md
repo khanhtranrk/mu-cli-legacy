@@ -11,7 +11,6 @@ The current runtime and legacy compatibility paths serve different spec formats.
 - `src/mu/runtime.py`: workload/pipeline spec execution, context rendering, conditions, actions, node lifecycle, request scheduling, and remote master-flow support.
 - `src/mu/cli.py`: Typer commands, local and remote request loading, GPU option parsing, and user-facing reports.
 - `src/mu/expressions.py`: bounded, versioned CEL rendering and interpreter profile adapters.
-- `src/mu/spec_migration.py`: conservative legacy-to-CEL candidate migration.
 - `src/mu/master_flow.py`: authenticated HTTP transport and worker engine capabilities.
 - `src/mu/hardware.py`: NVIDIA/AMD detection and 4 GiB scheduling-unit capacity.
 - `src/mu/pipelines.py`: legacy processor/pipeline expansion, model discovery, and template rendering.
@@ -89,17 +88,17 @@ uv run mu --help
 
 CPU-only regressions are committed under `tests/`. Select the owning suite,
 for example `uv run python -m unittest discover -s tests -p test_flow.py` for
-worker/lifecycle changes or `-p test_expressions.py` for CEL/migration. Run full
+worker/lifecycle changes or `-p test_expressions.py` for CEL. Run full
 `uv run python -m unittest discover -s tests` for justified cross-module changes.
 Do not run media examples or download models as routine validation.
 
 Do not add tests or run a broad test suite unless the user asks for verification or the change needs protection through a non-obvious regression test.
 
 
-## Versioned expressions and Artifact handoff
+## CEL expressions and Artifact handoff
 
-Read [CEL execution/migration](docs/spec-format/11-cel.md). Omitted engine means
-`python-format-v1`; `cel-v1` is explicit and unknown versions fail before entry
+Read [CEL execution](docs/spec-format/11-cel.md). CEL is the only engine;
+omitted engine also means `cel-v1`. Other versions fail before entry
 execution. Never evaluate CEL through Python eval/transpilation. Keep the pinned
 interpreter/profile adapters and identical conformance fixture synchronized with
 MasterFlow. Whole-value templates preserve JSON types; rendered results and

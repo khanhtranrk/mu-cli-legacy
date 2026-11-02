@@ -10,9 +10,9 @@ routines:
       path: {type: string}
     actions:
       - type: inspect_file
-        target: "{params[path]}"
+        target: "${{ params.path }}"
         save_state: file_info
-    returns: "{actions[file_info]}"
+    returns: "${{ actions.file_info }}"
 ```
 
 Call it from any action list (entry initialization/finalization, pipeline prepare,
@@ -22,7 +22,7 @@ node before_run/run/after_run/finally):
 - type: execute_routine
   routine: inspect_artifact
   args:
-    path: "{params[artifact_path]}"
+    path: "${{ params.artifact_path }}"
   save_state: inspected
 ```
 
@@ -69,11 +69,11 @@ upload completion; MasterFlow verifies its declared digest and size on completio
 
 ```yaml
 body:
-  id: "{request[requestId]}"
+  id: "${{ request.requestId }}"
   node_states:
-    "{node[name]}":
-      status: "{params[status]}"
-      logs: "{params[logs]}"
+    "${{ node.name }}":
+      status: "${{ params.status }}"
+      logs: "${{ params.logs }}"
 ```
 
 Keys must resolve to non-empty strings; unresolved key templates and duplicate keys

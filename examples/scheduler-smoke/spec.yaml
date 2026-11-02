@@ -1,3 +1,4 @@
+expression_engine: cel-v1
 # Event-driven status reports; uploads remain explicit spec actions.
 # Run with --device cuda,0,8: heavy (6) + light (2) fit; the second heavy waits.
 # Workloads only sleep: no GPU access or model downloads.
@@ -15,7 +16,7 @@ entries:
       routine: send_notification
       args:
         title: Scheduler smoke ended
-        message: Worker finished with status {entry[status]}.
+        message: Worker finished with status ${{ entry.status }}.
       ignore_error: true
 routines:
   send_notification:
@@ -29,15 +30,15 @@ routines:
         default: []
     actions:
     - type: send_http_request
-      url: '{session[server]}/api/notifications/send'
+      url: '${{ session.server }}/api/notifications/send'
       method: post
       header:
-        Authorization: Bearer {session[token]}
+        Authorization: Bearer ${{ session.token }}
         Content-Type: application/json
       body:
-        title: '{params[title]}'
-        message: '{params[message]}'
-        tags: '{params[tags]}'
+        title: '${{ params.title }}'
+        message: '${{ params.message }}'
+        tags: '${{ params.tags }}'
   report_node_status:
     params:
       status:
@@ -47,31 +48,31 @@ routines:
         default: []
     actions:
     - type: send_http_request
-      url: '{session[server]}/api/requests/report'
+      url: '${{ session.server }}/api/requests/report'
       method: post
       header:
-        Authorization: Bearer {session[token]}
+        Authorization: Bearer ${{ session.token }}
         Content-Type: application/json
       body:
-        id: '{request[requestId]}'
+        id: '${{ request.requestId }}'
         node_states:
-          '{node[name]}':
-            status: '{params[status]}'
-            logs: '{params[logs]}'
+          '${{ node.name }}':
+            status: '${{ params.status }}'
+            logs: '${{ params.logs }}'
   report_request_status:
     params:
       status:
         type: string
     actions:
     - type: send_http_request
-      url: '{session[server]}/api/requests/report'
+      url: '${{ session.server }}/api/requests/report'
       method: post
       header:
-        Authorization: Bearer {session[token]}
+        Authorization: Bearer ${{ session.token }}
         Content-Type: application/json
       body:
-        id: '{request[requestId]}'
-        status: '{params[status]}'
+        id: '${{ request.requestId }}'
+        status: '${{ params.status }}'
   upload_artifact:
     params:
       artifact_path:
@@ -88,43 +89,42 @@ routines:
         default: application/octet-stream
     actions:
     - type: inspect_file
-      target: '{params[artifact_path]}'
+      target: '${{ params.artifact_path }}'
       save_state: file_info
     - type: send_http_request
-      url: '{session[server]}/api/requests/artifacts/upload-url'
+      url: '${{ session.server }}/api/requests/artifacts/upload-url'
       method: post
       header:
-        Authorization: Bearer {session[token]}
+        Authorization: Bearer ${{ session.token }}
         Content-Type: application/json
       body:
-        requestId: '{request[requestId]}'
-        artifactId: '{params[artifact_id]}'
-        sha256: '{actions[file_info][sha256]}'
-        size: '{actions[file_info][size]}'
+        requestId: '${{ request.requestId }}'
+        artifactId: '${{ params.artifact_id }}'
+        sha256: '${{ actions.file_info.sha256 }}'
+        size: '${{ actions.file_info.size }}'
+        contentType: '${{ params.content_type }}'
       save_state: upload
     - type: send_http_request
-      url: '{actions[upload][body][uploadUrl]}'
-      method: post
-      header:
-        Content-Type: '{params[content_type]}'
-      body_file: '{actions[file_info][path]}'
+      url: '${{ actions.upload.body.uploadUrl }}'
+      method: '${{ actions.upload.body.method }}'
+      header: '${{ actions.upload.body.headers }}'
+      body_file: '${{ actions.file_info.path }}'
       timeout: 120
       save_state: stored
     - type: send_http_request
-      url: '{session[server]}/api/requests/artifacts/complete'
+      url: '${{ session.server }}/api/requests/artifacts/complete'
       method: post
       header:
-        Authorization: Bearer {session[token]}
+        Authorization: Bearer ${{ session.token }}
         Content-Type: application/json
       body:
-        requestId: '{request[requestId]}'
-        uploadId: '{actions[upload][body][uploadId]}'
-        storageId: '{actions[stored][body][storageId]}'
-        name: '{actions[file_info][name]}'
-        nodeName: '{params[node_name]}'
-        label: '{params[label]}'
+        requestId: '${{ request.requestId }}'
+        uploadId: '${{ actions.upload.body.uploadId }}'
+        name: '${{ actions.file_info.name }}'
+        nodeName: '${{ params.node_name }}'
+        label: '${{ params.label }}'
       save_state: registered
-    returns: '{actions[registered][body]}'
+    returns: '${{ actions.registered.body }}'
 workloads:
   simulated-gpu-20s:
     target: python
@@ -150,8 +150,8 @@ workloads:
     - from pathlib import Path; import sys; path = Path(sys.argv[1]); path.parent.mkdir(parents=True,
       exist_ok=True); path.write_text(f'Scheduler smoke artifact for request {sys.argv[2]}\n',
       encoding='utf-8')
-    - '{params[output_path]}'
-    - '{params[request_id]}'
+    - '${{ params.output_path }}'
+    - '${{ params.request_id }}'
     units: 0
   simulated-gpu-light-10s:
     target: python
@@ -168,7 +168,7 @@ pipeline:
         workload: simulated-gpu-20s
       finally:
       - type: write_json
-        path: '{session[working_dir]}/{request[requestId]}/simulated-gpu-a-finally.json'
+        path: '${{ session.working_dir }}/${{ request.requestId }}/simulated-gpu-a-finally.json'
         content:
           finalized: true
     - name: simulated-gpu-b
@@ -177,7 +177,7 @@ pipeline:
         workload: simulated-gpu-20s
       finally:
       - type: write_json
-        path: '{session[working_dir]}/{request[requestId]}/simulated-gpu-b-finally.json'
+        path: '${{ session.working_dir }}/${{ request.requestId }}/simulated-gpu-b-finally.json'
         content:
           finalized: true
     - name: simulated-gpu-light
@@ -197,28 +197,28 @@ pipeline:
       - simulated-gpu-light
       before_run:
       - type: write_json
-        path: '{session[working_dir]}/{request[requestId]}/scheduler-smoke-complete.json'
+        path: '${{ session.working_dir }}/${{ request.requestId }}/scheduler-smoke-complete.json'
         content:
           complete: true
       postcondition:
         operator: file_exists
-        path: '{session[working_dir]}/{request[requestId]}/scheduler-smoke-complete.json'
+        path: '${{ session.working_dir }}/${{ request.requestId }}/scheduler-smoke-complete.json'
     - name: artifact-upload
       context:
-        artifact_path: '{session[working_dir]}/{request[requestId]}/scheduler-smoke.txt'
+        artifact_path: '${{ session.working_dir }}/${{ request.requestId }}/scheduler-smoke.txt'
       run:
       - type: execute_workload
         workload: create-text-artifact
         args:
-          output_path: '{artifact_path}'
-          request_id: '{request[requestId]}'
+          output_path: '${{ artifact_path }}'
+          request_id: '${{ request.requestId }}'
       after_run:
       - type: execute_routine
         routine: upload_artifact
         args:
-          artifact_path: '{artifact_path}'
+          artifact_path: '${{ artifact_path }}'
           artifact_id: scheduler-smoke-text
-          node_name: '{node[name]}'
+          node_name: '${{ node.name }}'
           label: Scheduler smoke text
           content_type: text/plain; charset=utf-8
         save_state: registered_artifact
@@ -236,7 +236,7 @@ events:
     args:
       status: running
       logs:
-      - 'Started {event[node][name]}: {event[node][total_units]} units on {event[node][device][family]}:{event[node][device][index]}.'
+      - 'Started ${{ event.node.name }}: ${{ event.node.total_units }} units on ${{ event.node.device.family }}:${{ event.node.device.index }}.'
 - 'on': node_finished
   do:
   - type: execute_routine
@@ -244,8 +244,8 @@ events:
     args:
       status: succeeded
       logs:
-      - 'Finished {event[node][name]}: {event[node][status]}; skipped={event[node][skipped]};
-        blocked={event[node][blocked]}; error={event[error]}.'
+      - 'Finished ${{ event.node.name }}: ${{ event.node.status }}; skipped=${{ event.node.skipped }};
+        blocked=${{ event.node.blocked }}; error=${{ event.error == null ? "none" : event.error.message }}.'
     precondition:
       operator: node_state
       target:
@@ -256,8 +256,8 @@ events:
     args:
       status: failed
       logs:
-      - 'Finished {event[node][name]}: {event[node][status]}; skipped={event[node][skipped]};
-        blocked={event[node][blocked]}; error={event[error]}.'
+      - 'Finished ${{ event.node.name }}: ${{ event.node.status }}; skipped=${{ event.node.skipped }};
+        blocked=${{ event.node.blocked }}; error=${{ event.error == null ? "none" : event.error.message }}.'
     precondition:
       operator: node_state
       target:
@@ -271,7 +271,7 @@ events:
       status: succeeded
     context:
       node:
-        status: '{event[pipeline][status]}'
+        status: '${{ event.pipeline.status }}'
     precondition:
       operator: node_state
       target:
@@ -283,7 +283,7 @@ events:
       status: process_failed
     context:
       node:
-        status: '{event[pipeline][status]}'
+        status: '${{ event.pipeline.status }}'
     precondition:
       operator: node_state
       target:

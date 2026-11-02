@@ -7,8 +7,8 @@ run:
   - type: execute_workload
     workload: transcribe
     args:
-      input: "{params[input]}"
-      output: "{session[output_dir]}/transcript"
+      input: "${{ params.input }}"
+      output: "${{ session.output_dir }}/transcript"
 ```
 
 ## Minimum schema
@@ -22,8 +22,8 @@ workloads:
     target: ffmpeg
     args:
       - -i
-      - "{params[input]}"
-      - "{params[output]}"
+      - "${{ params.input }}"
+      - "${{ params.output }}"
     env: {}
     device_args: []
     units: 0
@@ -56,9 +56,9 @@ params:
 Before the process starts:
 
 1. Mu renders `execute_workload.args` using the node context.
-2. Mu validates the workload schema.
-3. Mu renders the resulting parameter values again.
-4. Mu creates `workload_context.params`.
+2. Mu evaluates missing defaults in the caller context.
+3. Mu validates the resulting values against the workload schema.
+4. Mu creates `workload_context.params`; supplied values are never rendered again.
 
 Each node/workload pair has its own parameter values. Think of `params` as a contract: the executable does not need to know the global pipeline request.
 
@@ -75,7 +75,7 @@ Parameter declarations do not impose types on the shell. Every value in the fina
 ```yaml
 env:
   HF_HUB_ENABLE_HF_TRANSFER: "1"
-  MODEL: "{params[model]}"
+  MODEL: "${{ params.model }}"
 ```
 
 Mu builds a child environment from:
@@ -92,7 +92,7 @@ A key in `env` overrides an environment variable with the same name. `env` is re
 
 ```yaml
 target: ffmpeg
-target: "{sys[cache_dir]}/bin/yue-synth"
+target: "${{ sys.cache_dir }}/bin/yue-synth"
 ```
 
 Mu calls `subprocess.run([target, *args])`, not a shell. Therefore, `target: "python -m demo"` does not behave like a shell command; use:
@@ -111,9 +111,9 @@ If the executable cannot be found, the subprocess raises an error during executi
 ```yaml
 args:
   - --model
-  - "{sys[models][YuE2-3B-BF16]}"
+  - '${{ sys.models["YuE2-3B-BF16"] }}'
   - --request
-  - "{params[request]}"
+  - "${{ params.request }}"
 ```
 
 No `shlex` quoting is needed in YAML. Mu constructs the argv directly:
@@ -139,7 +139,7 @@ If a single argument placeholder renders to a list or dictionary, its declaratio
 ```yaml
 device_args:
   - --device
-  - "{schedule[device_family]}:{schedule[device_index]}"
+  - "${{ schedule.device_family }}:${{ schedule.device_index }}"
 ```
 
 The argv assembly order is:
@@ -204,27 +204,27 @@ workloads:
       score: {type: string}
       model:
         type: string
-        default: "{sys[models][YuE2-3B-BF16]}"
+        default: '${{ sys.models["YuE2-3B-BF16"] }}'
       vae:
         type: string
-        default: "{sys[models][YuE2-Vae-F32]}"
+        default: '${{ sys.models["YuE2-Vae-F32"] }}'
     env:
       HF_HUB_ENABLE_HF_TRANSFER: "1"
-    target: "{sys[cache_dir]}/bin/yue-synth"
+    target: "${{ sys.cache_dir }}/bin/yue-synth"
     args:
       - --model
-      - "{params[model]}"
+      - "${{ params.model }}"
       - --vae
-      - "{params[vae]}"
+      - "${{ params.vae }}"
       - --request
-      - "{params[request]}"
+      - "${{ params.request }}"
       - --out
-      - "{params[output]}"
+      - "${{ params.output }}"
       - --score
-      - "{params[score]}"
+      - "${{ params.score }}"
     device_args:
       - --device
-      - "{schedule[device_family]}:{schedule[device_index]}"
+      - "${{ schedule.device_family }}:${{ schedule.device_index }}"
     units: 3
 ```
 
@@ -236,7 +236,7 @@ Node invocation:
     - type: execute_workload
       workload: yue2
       args:
-        request: "{session[cache_dir]}/requests/song.json"
-        output: "{session[output_dir]}/song/song.mp3"
-        score: "{session[output_dir]}/song/song.abc"
+        request: "${{ session.cache_dir }}/requests/song.json"
+        output: "${{ session.output_dir }}/song/song.mp3"
+        score: "${{ session.output_dir }}/song/song.abc"
 ```

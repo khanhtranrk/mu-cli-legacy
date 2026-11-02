@@ -8,7 +8,6 @@ import celpy
 from mu.cli import _runtime_base
 from mu.expressions import CEL, ENGINE_KEY, engine_for, render
 from mu.runtime import Flow, condition, params_for
-from mu.spec_migration import migrate_spec
 
 
 class ExpressionTests(unittest.TestCase):
@@ -29,9 +28,10 @@ class ExpressionTests(unittest.TestCase):
                     )
 
     def test_engine_and_once(self):
-        self.assertEqual(engine_for({}), "python-format-v1")
-        with self.assertRaises(ValueError):
-            engine_for({"expression_engine": "cel-v2"})
+        self.assertEqual(engine_for({}), CEL)
+        for engine in ("cel-v2", "python-format-v1"):
+            with self.assertRaises(ValueError):
+                engine_for({"expression_engine": engine})
         context = {ENGINE_KEY: CEL}
         self.assertEqual(
             params_for({"a": {"type": "string"}}, {"a": "${{ 2 }}"}, context, "p"),
@@ -39,16 +39,6 @@ class ExpressionTests(unittest.TestCase):
         )
         with self.assertRaises(ValueError):
             condition({"operator": "cel", "expression": "${{ 1 }}"}, context, {})
-
-    def test_migration(self):
-        source = {"context": {"x": "{session[output_dir]}/x", "n": "{params[n]}"}}
-        report = migrate_spec(source)
-        self.assertEqual(report["issues"], [])
-        self.assertEqual(report["converted"], 2)
-        self.assertEqual(report["spec"]["context"]["n"], '${{ params["n"] }}')
-        self.assertEqual(source["context"]["n"], "{params[n]}")
-        self.assertTrue(migrate_spec({"name": "{params[n]} super"})["issues"])
-        self.assertTrue(migrate_spec({"x": '{"a":1}'})["issues"])
 
     def test_cpu_flow_request_scopes_defaults_conditions_and_routines(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -203,45 +193,6 @@ class ExpressionTests(unittest.TestCase):
             )
             self.assertEqual(json.loads((root / "event.json").read_text()), 8)
 
-    def test_cli_migration_never_overwrites_and_blocks_ambiguous_input(self):
-        from typer.testing import CliRunner
-
-        from mu.cli import app
-
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            source = root / "source.yaml"
-            target = root / "target.yaml"
-            source.write_text(
-                'context:\n  path: "{session[output_dir]}/x"\npipeline: {}\n'
-            )
-            original = source.read_bytes()
-            runner = CliRunner()
-            result = runner.invoke(
-                app, ["spec", "migrate-cel", str(source), "--output", str(target)]
-            )
-            self.assertEqual(result.exit_code, 0, result.output)
-            candidate = target.read_bytes()
-            self.assertEqual(source.read_bytes(), original)
-            result = runner.invoke(
-                app, ["spec", "migrate-cel", str(source), "--output", str(target)]
-            )
-            self.assertEqual(result.exit_code, 2)
-            self.assertEqual(target.read_bytes(), candidate)
-            source.write_text("x: '{\"literal\": 1}'\n")
-            result = runner.invoke(
-                app,
-                [
-                    "spec",
-                    "migrate-cel",
-                    str(source),
-                    "--output",
-                    str(root / "blocked.yaml"),
-                ],
-            )
-            self.assertEqual(result.exit_code, 2)
-            self.assertFalse((root / "blocked.yaml").exists())
-
     def test_captured_artifact_registry_reference_is_plain_json_and_isolated(self):
         from mu.runtime import _request_scopes
 
@@ -257,23 +208,7 @@ class ExpressionTests(unittest.TestCase):
         context["Session"]["Registry"]["Asset"]["artifactId"] = "changed"
         self.assertEqual(reference["artifactId"], "canonical-artifact-id")
 
-    def test_shared_migration_vectors(self):
-        vectors = json.loads(
-            (Path(__file__).parent / "fixtures/spec-migration-v1.json").read_text()
-        )
-        for item in vectors:
-            with self.subTest(case=item["name"]):
-                original = json.dumps(item["source"])
-                report = migrate_spec(item["source"])
-                self.assertEqual(json.dumps(item["source"]), original)
-                if "issue" in item:
-                    self.assertIn(item["issue"], "\n".join(report["issues"]))
-                else:
-                    self.assertEqual(report["issues"], [])
-                    self.assertEqual(report["spec"], item["expected"])
-                    self.assertEqual(report["converted"], item["converted"])
-
-    def test_current_media_example_migrates_without_executing_workloads(self):
+    def test_current_media_example_is_cel_without_executing_workloads(self):
         from copy import deepcopy
 
         from mu.expressions import validate_templates
@@ -285,12 +220,9 @@ class ExpressionTests(unittest.TestCase):
         source["pipeline"]["song-with-cover-recure"] = deepcopy(
             source["pipeline"]["song-with-cover"]
         )
-        original = deepcopy(source)
-        report = migrate_spec(source)
-        self.assertEqual(report["issues"], [])
-        self.assertGreater(report["converted"], 300)
-        validate_templates(report["spec"])
-        body = report["spec"]["routines"]["report_node_status"]["actions"][0]["body"]
+        self.assertEqual(engine_for(source), CEL)
+        validate_templates(source)
+        body = source["routines"]["report_node_status"]["actions"][0]["body"]
         rendered = render_payload(
             body,
             {
@@ -307,7 +239,6 @@ class ExpressionTests(unittest.TestCase):
                 "node_states": {"render": {"status": "running", "logs": ["ok"]}},
             },
         )
-        self.assertEqual(source, original)
 
     def test_spec_syntax_budget_is_separate_from_runtime(self):
         from mu.expressions import validate_templates
@@ -319,3 +250,21 @@ class ExpressionTests(unittest.TestCase):
             validate_templates(["${{ 1 }}"] * 4097)
         with self.assertRaisesRegex(ValueError, "limit"):
             render(["${{ 1 }}"] * 193, {})
+
+    def test_all_bundled_specs_use_cel_and_reject_removed_engine_before_actions(self):
+        from mu.expressions import validate_templates
+        from mu.runtime import read_data
+        from unittest.mock import patch
+
+        root = Path(__file__).parents[1]
+        paths = list((root / "examples").rglob("spec*.yaml"))
+        paths.append(root / ".github/skills/create-mu-spec/assets/minimal-spec.yaml")
+        for path in paths:
+            with self.subTest(spec=str(path)):
+                spec = read_data(path)
+                self.assertEqual(spec["expression_engine"], CEL)
+                validate_templates(spec)
+        with patch("mu.runtime.run_action") as action:
+            with self.assertRaisesRegex(ValueError, "only cel-v1"):
+                Flow({"expression_engine": "python-format-v1"}, "direct_flow", {}, [], Path("/tmp"))
+            action.assert_not_called()

@@ -1,4 +1,4 @@
-"""Versioned Mu CEL profile. Interpreter only; no Python eval or transpilation."""
+"""Mu CEL profile. Interpreter only; no Python eval or transpilation."""
 
 from __future__ import annotations
 
@@ -14,7 +14,6 @@ from lark import Token
 
 ENGINE_KEY = "__mu_expression_engine"
 CEL = "cel-v1"
-LEGACY = "python-format-v1"
 CALLS = {"has", "size", "string", "int", "double", "bool"}
 METHODS = {"size", "contains", "startsWith", "endsWith"}
 FORBIDDEN = {"__proto__", "constructor", "prototype"}
@@ -23,9 +22,9 @@ FORBIDDEN = {"__proto__", "constructor", "prototype"}
 def engine_for(spec: dict) -> str:
     if not isinstance(spec, dict):
         raise TypeError("Spec must be a mapping")
-    engine = spec.get("expression_engine", LEGACY)
-    if engine not in (CEL, LEGACY):
-        raise ValueError("expression_engine: expected cel-v1 or python-format-v1")
+    engine = spec.get("expression_engine", CEL)
+    if engine != CEL:
+        raise ValueError("expression_engine: only cel-v1 is supported")
     return engine
 
 

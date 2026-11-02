@@ -1,3 +1,4 @@
+expression_engine: cel-v1
 # Safe local demo: uv run mu run --spec examples/routines/spec.yaml --working_dir /tmp/mu-routines-demo --pipeline demo,examples/routines/input.yaml
 routines:
   inspect_artifact:
@@ -5,9 +6,9 @@ routines:
       path: {type: string}
     actions:
       - type: inspect_file
-        target: "{params[path]}"
+        target: "${{ params.path }}"
         save_state: file_info
-    returns: "{actions[file_info]}"
+    returns: "${{ actions.file_info }}"
   record_artifact:
     params:
       path: {type: string}
@@ -16,15 +17,15 @@ routines:
       - type: execute_routine
         routine: inspect_artifact
         args:
-          path: "{params[path]}"
+          path: "${{ params.path }}"
         save_state: inspected
       - type: write_json
-        path: "{session[output_dir]}/manifest.json"
+        path: "${{ session.output_dir }}/manifest.json"
         content:
-          "{node[name]}":
-            file: "{actions[inspected][output]}"
-            logs: "{params[logs]}"
-    returns: "{actions[inspected][output]}"
+          "${{ node.name }}":
+            file: "${{ actions.inspected.output }}"
+            logs: "${{ params.logs }}"
+    returns: "${{ actions.inspected.output }}"
 pipeline:
   demo:
     params: {}
@@ -32,12 +33,12 @@ pipeline:
       - name: artifact-demo
         run:
           - type: write_json
-            path: "{session[output_dir]}/result.json"
+            path: "${{ session.output_dir }}/result.json"
             content: {message: hello}
           - type: execute_routine
             routine: record_artifact
             args:
-              path: "{session[output_dir]}/result.json"
+              path: "${{ session.output_dir }}/result.json"
               logs: [File inspected]
             save_state: artifact
         postcondition:

@@ -21,7 +21,7 @@ class MasterFlowClient:
         headers = {"Authorization": "Bearer " + self.token,
                    "Accept": "application/yaml" if body is None else "application/json"}
         if body is None:
-            headers["X-Mu-Expression-Engines"] = "python-format-v1,cel-v1"
+            headers["X-Mu-Expression-Engines"] = "cel-v1"
         data = None
         if body is not None:
             headers["Content-Type"] = "application/json"
