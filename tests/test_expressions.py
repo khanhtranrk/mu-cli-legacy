@@ -256,3 +256,66 @@ class ExpressionTests(unittest.TestCase):
         self.assertEqual(render("${{ Session.Registry.Asset }}", context), reference)
         context["Session"]["Registry"]["Asset"]["artifactId"] = "changed"
         self.assertEqual(reference["artifactId"], "canonical-artifact-id")
+
+    def test_shared_migration_vectors(self):
+        vectors = json.loads(
+            (Path(__file__).parent / "fixtures/spec-migration-v1.json").read_text()
+        )
+        for item in vectors:
+            with self.subTest(case=item["name"]):
+                original = json.dumps(item["source"])
+                report = migrate_spec(item["source"])
+                self.assertEqual(json.dumps(item["source"]), original)
+                if "issue" in item:
+                    self.assertIn(item["issue"], "\n".join(report["issues"]))
+                else:
+                    self.assertEqual(report["issues"], [])
+                    self.assertEqual(report["spec"], item["expected"])
+                    self.assertEqual(report["converted"], item["converted"])
+
+    def test_current_media_example_migrates_without_executing_workloads(self):
+        from copy import deepcopy
+
+        from mu.expressions import validate_templates
+        from mu.runtime import read_data, render_payload
+
+        source = read_data(
+            Path(__file__).parent.parent / "examples/song-with-cover/spec.yaml"
+        )
+        source["pipeline"]["song-with-cover-recure"] = deepcopy(
+            source["pipeline"]["song-with-cover"]
+        )
+        original = deepcopy(source)
+        report = migrate_spec(source)
+        self.assertEqual(report["issues"], [])
+        self.assertGreater(report["converted"], 300)
+        validate_templates(report["spec"])
+        body = report["spec"]["routines"]["report_node_status"]["actions"][0]["body"]
+        rendered = render_payload(
+            body,
+            {
+                ENGINE_KEY: CEL,
+                "request": {"requestId": "r"},
+                "node": {"name": "render"},
+                "params": {"status": "running", "logs": ["ok"]},
+            },
+        )
+        self.assertEqual(
+            rendered,
+            {
+                "id": "r",
+                "node_states": {"render": {"status": "running", "logs": ["ok"]}},
+            },
+        )
+        self.assertEqual(source, original)
+
+    def test_spec_syntax_budget_is_separate_from_runtime(self):
+        from mu.expressions import validate_templates
+
+        validate_templates([{"x": "${{ params.name }}"} for _ in range(300)])
+        with self.assertRaises((ValueError, celpy.CELParseError)):
+            validate_templates({"${{ params.name + }}": 1})
+        with self.assertRaisesRegex(ValueError, "work limit"):
+            validate_templates(["${{ 1 }}"] * 4097)
+        with self.assertRaisesRegex(ValueError, "limit"):
+            render(["${{ 1 }}"] * 193, {})

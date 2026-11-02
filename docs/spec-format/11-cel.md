@@ -78,7 +78,10 @@ safe integers (±9007199254740991), string map keys, no prototype keys.
 
 Each rendering operation allows 192 expressions of at most 2048 characters,
 128-element result collections, depth 16 and 32 KiB per expression result.
-Spec syntax validation also caps total active wrappers at 192. Python profile
+Whole-Spec syntax validation has a separate budget: up to 4096 wrappers,
+64 levels of document nesting, and total parsed-work caps of 262144 TypeScript
+semantic nodes / 2097152 celpy grammar nodes. Per-string syntax checks retain the
+normal expression limits; runtime render budgets remain unchanged. Python profile
 adapters prevent Python boolean/integer coercion and normalize supported casts,
 scalar text and aggregate comparisons to the TypeScript profile. Interpreters also bound parsed work: TypeScript has 256 semantic AST nodes per
 expression, 8192 per operation; celpy's more verbose grammar trees allow 2048
@@ -98,9 +101,19 @@ uv run mu spec migrate-cel spec.yaml --output spec-cel.yaml
 
 The source is untouched; existing output files are never overwritten. Recognized
 `{root[key][nested]}` placeholders become `${{ root["key"]["nested"] }}`. Literal
-braces/JSON strings, preexisting CEL, dynamic structural names/map keys, and
+braces/JSON strings, preexisting CEL, dynamic structural names/keys, and
 pipeline prepare depending on pipeline context require manual work; these block
-candidate writing. Scalar interpolation changes, strict missing-key behavior,
+candidate writing. JSON data fields such as `content.name`, `body.name`,
+argument/default/context values are not structural identifiers. Dynamic keys are
+converted recursively only in `write_json.content` and `send_http_request.body`,
+where runtime `render_payload` renders keys. Keys in args/context/default/header
+maps remain literal and dynamic keys there require manual work. Definition names
+that happen to be `context`, `args`, etc. retain their structural namespace role.
+Key collisions after conversion block migration. The identical
+`tests/fixtures/spec-migration-v1.json` fixtures cover this classification in both
+repositories.
+
+Scalar interpolation changes, strict missing-key behavior,
 removal of recursive rendering, types and YAML formatting/comments need review.
 
 MasterFlow's **Preview CEL migration** creates a YAML draft and report. Review and

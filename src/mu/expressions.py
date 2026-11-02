@@ -125,15 +125,22 @@ def compile_source(source: str, budget: list[int]):
     return env, ast
 
 
-def validate_templates(value: Any, budget: list[int] | None = None) -> None:
+def validate_templates(
+    value: Any, budget: list[int] | None = None, depth: int = 0
+) -> None:
     budget = budget if budget is not None else [0, 0]
+    if depth > 64:
+        raise ValueError("Spec CEL syntax depth limit exceeded")
     if isinstance(value, dict):
-        for item in value.values():
-            validate_templates(item, budget)
+        for key, item in value.items():
+            if isinstance(key, str):
+                validate_templates(key, budget, depth + 1)
+            validate_templates(item, budget, depth + 1)
     elif isinstance(value, list):
         for item in value:
-            validate_templates(item, budget)
+            validate_templates(item, budget, depth + 1)
     elif isinstance(value, str):
+        local = [0, 0]
         i = 0
         while i < len(value):
             escaped = value.startswith("$${{", i)
@@ -147,7 +154,12 @@ def validate_templates(value: Any, budget: list[int] | None = None) -> None:
                     return
                 raise
             if not escaped:
-                compile_source(value[i + 3 : end].strip(), budget)
+                previous_nodes = local[1]
+                compile_source(value[i + 3 : end].strip(), local)
+                budget[0] += 1
+                budget[1] += local[1] - previous_nodes
+                if budget[0] > 4096 or budget[1] > 2097152:
+                    raise ValueError("Spec CEL syntax work limit exceeded")
             i = end + 2
 
 

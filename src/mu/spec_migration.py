@@ -53,19 +53,53 @@ def migrate_spec(spec: dict) -> dict:
             )
         return result
 
-    def visit(value, path, literal=False):
+    data_fields = {"args", "context", "env", "default", "returns", "header"}
+
+    def visit(
+        value, path, literal=False, data=False, render_keys=False, namespace=False
+    ):
         if isinstance(value, str):
             return text(value, path, literal)
         if isinstance(value, list):
-            return [visit(v, f"{path}[{i}]", literal) for i, v in enumerate(value)]
+            return [
+                visit(v, f"{path}[{i}]", literal, data, render_keys, namespace)
+                for i, v in enumerate(value)
+            ]
         if isinstance(value, dict):
             result = {}
-            for k, v in value.items():
-                if re.search(r"[{}]", str(k)):
-                    report["issues"].append(
-                        f"{path}: dynamic map key requires manual migration"
+            for key, item in value.items():
+                converted_key = (
+                    text(
+                        key, f"{path}[key:{json.dumps(key, ensure_ascii=False)}]", False
                     )
-                result[k] = visit(v, f"{path}.{k}", k in STRUCTURAL)
+                    if render_keys and isinstance(key, str)
+                    else key
+                )
+                if not render_keys and re.search(r"[{}]", str(key)):
+                    report["issues"].append(
+                        f"{path}: dynamic structural map key requires manual migration"
+                    )
+                if converted_key in result:
+                    report["issues"].append(
+                        f"{path}: duplicate map key after migration: {converted_key}"
+                    )
+                # Only action body/content render keys; other data fields render values.
+                payload = not data and (
+                    (value.get("type") == "write_json" and key == "content")
+                    or (value.get("type") == "send_http_request" and key == "body")
+                )
+                child_data = data or payload or (not namespace and key in data_fields)
+                result[converted_key] = visit(
+                    item,
+                    f"{path}.{key}",
+                    not child_data and not namespace and key in STRUCTURAL,
+                    child_data,
+                    render_keys or payload,
+                    not child_data
+                    and not namespace
+                    and key
+                    in {"pipeline", "workloads", "routines", "entries", "params"},
+                )
             return result
         return deepcopy(value)
 
