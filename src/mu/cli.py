@@ -441,7 +441,9 @@ def master_flow_run(
                         if item["requestId"] in seen:
                             raise ValueError("server reclaimed a request already seen in this flow; narrow --by-status")
                         seen.add(item["requestId"])
-                        metadata = {"registryContext": item.get("registryContext", {}), "requestId": item["requestId"], "specSlug": item["specSlug"], "assignmentVersion": item.get("assignmentVersion")}
+                        metadata = {"artifacts": item.get("artifacts", []), "registryContext": item.get("registryContext", {}), "requestId": item["requestId"], "specSlug": item["specSlug"], "assignmentVersion": item.get("assignmentVersion")}
+                        if not isinstance(metadata["artifacts"], list):
+                            raise ValueError("claim artifacts must be an array")
                         if not isinstance(metadata["assignmentVersion"], int) or isinstance(metadata["assignmentVersion"], bool) or metadata["assignmentVersion"] < 1:
                             raise ValueError("claim response requires a positive assignmentVersion; update MasterFlow")
                         if item["specSlug"] != spec_slug:

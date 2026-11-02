@@ -126,6 +126,7 @@ class FlowTests(unittest.TestCase):
                 "pipeline": {"demo": {"prepare": [write(root / "prepared", {}), notify("prepare")],
                 "params": {"name": {"type": "string"}}, "nodes": [{"name": "save",
                 "before_run": [write("{session[working_dir]}/{params[name]}.json", "{request[requestId]}"), notify("node")]}]}}}
+        spec["pipeline"]["demo"]["nodes"][0]["before_run"].append(write(str(root / "claimed-outputs.json"), "{request[artifacts]}"))
         if cel:
             from mu.spec_migration import migrate_spec
             report = migrate_spec(spec)
@@ -134,6 +135,9 @@ class FlowTests(unittest.TestCase):
             spec["pipeline"]["demo"]["nodes"][0]["before_run"].append(write(str(root / "registry.json"), "${{ Request.Registry.N }}"))
         events, selections = [], []
         batches = [[{"requestId": str(i), "specSlug": "demo", "pipelineName": "demo", "assignmentVersion": 1, "payload": {"name": str(i)}}] for i in (1, 2)] + [[]]
+        for batch in batches:
+            for item in batch:
+                item["artifacts"] = [{"id": "input-" + item["requestId"], "handler": "s3", "connectionId": "r2", "objectKey": "object", "name": "input.txt", "contentType": "text/plain", "size": 3, "createdAt": 1}]
         if cel:
             for batch in batches:
                 for item in batch:
@@ -172,6 +176,7 @@ class FlowTests(unittest.TestCase):
         with patch("mu.cli.detect_devices", return_value=[]):
             result = CliRunner().invoke(app, args, env=environment)
         self.assertEqual(result.exit_code, 0, result.output)
+        self.assertEqual(json.loads((root / "claimed-outputs.json").read_text())[0]["id"],"input-2")
         self.assertEqual(len(selections), 3)
         self.assertTrue(all(s["expressionEngine"] == ("cel-v1" if cel else "python-format-v1") for s in selections))
         if cel: self.assertEqual(json.loads((root / "registry.json").read_text()),20)

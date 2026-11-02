@@ -140,11 +140,11 @@ workload actions are included in this maximum. See [actions](04-actions.md) for 
 
 ## Request artifacts
 
-MasterFlow keeps request/node artifact metadata arrays as compatibility
-projections. Their `id` and the HTTP `artifactId` are Request-scoped **output
+MasterFlow derives request/node artifact metadata arrays by joining current
+ownership, Artifact and Physical File records; the arrays are not stored. Their `id` and the HTTP `artifactId` are Request-scoped **output
 keys**, not the independent canonical Artifact ID. Entries include name, optional
 node/label, MIME type, size and creation time; S3 entries include handler,
-connection ID and object key, while read-only legacy entries use `storageId`.
+connection ID and object key. Convex-native legacy file entries are no longer supported.
 Claim responses preserve this shape under `request[artifacts]`. Completing an
 upload does not mutate the worker's local request context or execution status.
 
@@ -165,7 +165,7 @@ canonical Artifact/File rather than redirecting earlier shared Artifacts. Physic
 files are retained after logical removal or replacement.
 
 Both `/api/requests/artifacts/download-url` and the older `/download` route return
-JSON with an expiring URL, name, contentType, size, expiresAt and legacy. Resolve
+JSON with an expiring URL, name, contentType, size and expiresAt. Resolve
 that URL with worker authentication, then fetch bytes directly with response_file
 **without forwarding the worker token**. S3 GET URLs last five minutes; old
 Convex URLs have `expiresAt: null`. Existing issued URLs are bearer capabilities
@@ -204,3 +204,14 @@ snapshots server-side. The claim response and assignment/report protocol are
 unchanged; `payload` contains ordinary, typed JSON. CLI workers neither fetch
 Creation Space/Session Registries nor evaluate their CEL expressions. See
 [Registry input compatibility](02-context-and-templates.md#masterflow-registry-inputs-phase-4).
+
+### Canonical Artifact storage
+
+The development cleanup removes the former Artifact compatibility tables and
+backfill tools. The server stores one Artifact in `artifacts`, its file in
+`physicalFiles`, and ownership/output placement in `artifactOwners`. Request and
+node `artifacts` arrays are derived views, never stored copies. Workers continue
+to use request-scoped output keys in HTTP `artifactId`; these are separate from
+canonical Artifact IDs. Download responses always contain an expiring S3 URL and
+no legacy-provider flag. An old upload receipt cannot complete after removal or
+reset, but a new explicit upload can reuse a removed output key.
