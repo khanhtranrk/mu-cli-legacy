@@ -110,7 +110,10 @@ class FlowTests(unittest.TestCase):
     def test_master_flow_session_uses_environment_when_options_are_absent(self):
         self.check_master_flow_session(use_environment=True)
 
-    def check_master_flow_session(self, *, use_environment):
+    def test_cel_master_flow_real_http_snapshot_handoff(self):
+        self.check_master_flow_session(use_environment=False, cel=True)
+
+    def check_master_flow_session(self, *, use_environment, cel=False):
         root = self.root
         def notify(phase):
             return {"type": "send_http_request", "method": "post",
@@ -123,13 +126,24 @@ class FlowTests(unittest.TestCase):
                 "pipeline": {"demo": {"prepare": [write(root / "prepared", {}), notify("prepare")],
                 "params": {"name": {"type": "string"}}, "nodes": [{"name": "save",
                 "before_run": [write("{session[working_dir]}/{params[name]}.json", "{request[requestId]}"), notify("node")]}]}}}
+        if cel:
+            from mu.spec_migration import migrate_spec
+            report = migrate_spec(spec)
+            self.assertFalse(report["issues"])
+            spec = report["spec"]
+            spec["pipeline"]["demo"]["nodes"][0]["before_run"].append(write(str(root / "registry.json"), "${{ Request.Registry.N }}"))
         events, selections = [], []
         batches = [[{"requestId": str(i), "specSlug": "demo", "pipelineName": "demo", "assignmentVersion": 1, "payload": {"name": str(i)}}] for i in (1, 2)] + [[]]
+        if cel:
+            for batch in batches:
+                for item in batch:
+                    item["registryContext"] = {"Request": {"N": int(item["requestId"])*10}}
         class Handler(BaseHTTPRequestHandler):
             def log_message(self, *args):
                 pass
             def do_GET(self):
                 self.assert_auth()
+                assert "cel-v1" in self.headers["X-Mu-Expression-Engines"]
                 events.append(self.path)
                 self.send_response(200); self.end_headers(); self.wfile.write(yaml.safe_dump(spec).encode())
             def do_POST(self):
@@ -159,6 +173,8 @@ class FlowTests(unittest.TestCase):
             result = CliRunner().invoke(app, args, env=environment)
         self.assertEqual(result.exit_code, 0, result.output)
         self.assertEqual(len(selections), 3)
+        self.assertTrue(all(s["expressionEngine"] == ("cel-v1" if cel else "python-format-v1") for s in selections))
+        if cel: self.assertEqual(json.loads((root / "registry.json").read_text()),20)
         self.assertIn("No matching requests", result.output)
         self.assertIn("Unit worker: offline", result.output)
         self.assertTrue(all(s["byStatus"] == ["waiting"] and s["byPipeline"] == ["demo", "other"] for s in selections))

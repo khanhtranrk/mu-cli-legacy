@@ -16,7 +16,8 @@ This directory explains the YAML/JSON structure understood by Mu, using the spec
 8. [08 – Complete examples, from small to large](08-complete-example.md)
 9. [Routines and file inspection](09-routines.md)
 10. [Lifecycle events](10-events.md)
-11. [Quick-reference table](quick-reference.md)
+11. [Versioned CEL Specs and migration](11-cel.md)
+12. [Quick-reference table](quick-reference.md)
 
 ## A complete spec at a glance
 

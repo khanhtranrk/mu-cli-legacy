@@ -7,7 +7,7 @@ MU CLI is the execution engine of [MU](https://github.com/khanhtranrk/mu). Defin
 ## What it does
 
 - Runs reusable subprocess workloads as nodes in dependency graphs.
-- Resolves parameters, templates, conditions, and lifecycle actions.
+- Resolves parameters, templates, conditions, and lifecycle actions, including [opt-in CEL Specs](docs/spec-format/11-cel.md).
 - Schedules CPU work and GPU workloads using device capacity units.
 - Connects to MasterFlow with scoped worker tokens to claim requests, report progress, and transfer artifacts directly through signed storage URLs.
 

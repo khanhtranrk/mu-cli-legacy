@@ -26,7 +26,21 @@ import yaml
 from mu.spec_yaml import load_spec_yaml
 from mu.http_headers import request_headers
 from mu.hardware import ComputeDevice
-from mu.pipelines import _render
+from mu.pipelines import _render as _legacy_render
+from mu.expressions import CEL, ENGINE_KEY, engine_for, json_value as _cel_json, validate_templates, render as _cel_render
+
+
+def _render(value, context):
+    return _cel_render(value, context) if context.get(ENGINE_KEY) == CEL else _legacy_render(value, context)
+
+
+def _request_scopes(context, request):
+    captured = request.get("registryContext", {})
+    if not isinstance(captured, dict): raise RuntimeError("registryContext must be a mapping")
+    for scope in ("CreationSpace", "Session", "Request"):
+        values = captured.get(scope, {})
+        if not isinstance(values, dict): raise RuntimeError(f"registryContext.{scope} must be a mapping")
+        context[scope] = {"Registry": deepcopy(values)}
 
 
 class _SafeRedirect(HTTPRedirectHandler):
@@ -110,7 +124,7 @@ def params_for(schema: dict[str, Any], supplied: dict[str, Any], context: dict[s
             value = declaration["default"]
         else:
             raise RuntimeError(f"{label} requires parameter {name!r}")
-        value = _render(value, context)
+        value = _cel_json(value) if context.get(ENGINE_KEY) == CEL and name in supplied else _render(value, context)
         kind = declaration.get("type")
         if kind in {"array", "object", "boolean"} and not isinstance(value, {"array": list, "object": dict, "boolean": bool}[kind]):
             raise RuntimeError(f"{label}.{name} must be {kind}")
@@ -122,7 +136,7 @@ def params_for(schema: dict[str, Any], supplied: dict[str, Any], context: dict[s
     unknown = set(supplied) - set(schema)
     if unknown:
         raise RuntimeError(f"{label} has unknown parameter(s): {', '.join(sorted(unknown))}")
-    return _render(result, {**context, "params": result})
+    return result if context.get(ENGINE_KEY) == CEL else _render(result, {**context, "params": result})
 
 
 def condition(spec: Any, context: dict[str, Any], states: dict[str, str]) -> bool:
@@ -132,7 +146,13 @@ def condition(spec: Any, context: dict[str, Any], states: dict[str, str]) -> boo
         raise RuntimeError("condition must be a mapping with operator")
     op = spec["operator"]
     expected = spec.get("expected", True)
-    if op in {"and", "or"}:
+    if op == "cel":
+        if context.get(ENGINE_KEY) != CEL:
+            raise RuntimeError("CEL conditions require expression_engine: cel-v1")
+        value = _render(spec.get("expression"), context)
+        if not isinstance(value, bool) or not isinstance(expected, bool):
+            raise RuntimeError("CEL condition expression and expected must be booleans")
+    elif op in {"and", "or"}:
         props = spec.get("props", [])
         if not isinstance(props, list): raise RuntimeError(f"{op}.props must be a list")
         value = all(condition(x, context, states) for x in props) if op == "and" else any(condition(x, context, states) for x in props)
@@ -175,6 +195,8 @@ def condition(spec: Any, context: dict[str, Any], states: dict[str, str]) -> boo
 def _apply_context(target: dict[str, Any], values: Any) -> None:
     if values:
         if not isinstance(values, dict): raise RuntimeError("context must be a mapping")
+        if ENGINE_KEY in values or (target.get(ENGINE_KEY) == CEL and any(k in values for k in ("CreationSpace", "Session", "Request"))):
+            raise RuntimeError("context cannot override engine or captured Registry scopes")
         target.update(values)
 
 
@@ -184,7 +206,7 @@ def render_payload(value: Any, context: dict[str, Any]) -> Any:
         result = {}
         for key, item in value.items():
             key = _render(key, context)
-            if not isinstance(key, str) or not key.strip() or re.search(r"\{[^{}]+\}", key):
+            if not isinstance(key, str) or not key.strip() or (context.get(ENGINE_KEY) != CEL and re.search(r"\{[^{}]+\}", key)):
                 raise RuntimeError("payload key must resolve to a non-empty string")
             if key in result:
                 raise RuntimeError(f"duplicate rendered payload key {key!r}")
@@ -193,7 +215,7 @@ def render_payload(value: Any, context: dict[str, Any]) -> Any:
     if isinstance(value, list):
         return [render_payload(item, context) for item in value]
     rendered = _render(value, context)
-    if isinstance(rendered, (dict, list)):
+    if context.get(ENGINE_KEY) != CEL and isinstance(rendered, (dict, list)):
         return render_payload(rendered, context)
     return rendered
 
@@ -321,7 +343,8 @@ def run_action(
     if not condition(action.get("precondition"), context, states):
         print(f"[SKIP] {label} ({typ}): precondition did not match", flush=True)
         return
-    values = _render(action, context)
+    values = (_render({k: v for k, v in action.items() if k not in {"context", "skip_if", "precondition", "postcondition", "body", "content"}}, context)
+              if context.get(ENGINE_KEY) == CEL else _render(action, context))
     key = values.get("save_state")
     if "save_state" in values:
         if not isinstance(key, str) or not key.strip():
@@ -661,6 +684,7 @@ def execute_pipelines(
         definition = spec.get("pipeline", {}).get(pipeline_name)
         if not isinstance(definition, dict): raise RuntimeError(f"pipeline {pipeline_name!r} is not defined")
         context = deepcopy(request_contexts[request_index] if request_contexts is not None else base)
+        context[ENGINE_KEY] = engine_for(spec)
         if request_contexts is None:
             _apply_context(context, _render(definition.get("context", {}), context))
         context["pipeline_name"] = pipeline_name
@@ -800,6 +824,8 @@ class Flow:
             raise RuntimeError("spec.prepare was removed; move actions to pipeline.<name>.prepare or entries.<entry>.initialization")
         if "master-flow" in spec:
             raise RuntimeError("spec.master-flow was removed; use entries.master_flow and server request claiming")
+        if engine_for(spec) == CEL:
+            validate_templates(spec)
         validate_routines(spec)
         validate_events(spec)
         entries = spec.get("entries", {})
@@ -819,6 +845,8 @@ class Flow:
             self.validate_actions(value.get("prepare", []), f"pipeline.{name}.prepare")
         self.spec, self.devices, self.workdir = spec, devices, workdir
         self.context = deepcopy(base)
+        self.context[ENGINE_KEY] = engine_for(spec)
+        if self.context[ENGINE_KEY] == CEL: _request_scopes(self.context, {})
         self.context["entry"] = {"name": entry, "status": "running"}
         self.lifecycle = entries.get(entry, {})
         self.prepared: dict[str, dict] = {}
@@ -851,6 +879,7 @@ class Flow:
         for name, payload, request in requests:
             context = deepcopy(self.context)
             context["request"] = deepcopy(request)
+            if self.context[ENGINE_KEY] == CEL: _request_scopes(context, request)
             context["pipeline_name"] = name
             emit_event(self.spec, "pipeline_started", name, context, {}, self.workdir)
             try:
@@ -862,9 +891,17 @@ class Flow:
                 for node in validate_pipeline(definition, name):
                     node_units(self.spec, node)
                 context = deepcopy(self.prepared.get(name, self.context))
-                if name not in self.prepared:
+                if name not in self.prepared and self.context[ENGINE_KEY] != CEL:
                     _apply_context(context, _render(definition.get("context", {}), context))
-                params_for(definition.get("params", {}), payload, context, f"pipeline {name}")
+                if self.context[ENGINE_KEY] == CEL:
+                    validation_context = deepcopy(context)
+                    _request_scopes(validation_context, request)
+                    validation_context["request"] = deepcopy(request)
+                    validation_context["pipeline_name"] = name
+                    _apply_context(validation_context, _render(definition.get("context", {}), validation_context))
+                    params_for(definition.get("params", {}), payload, validation_context, f"pipeline {name}")
+                else:
+                    params_for(definition.get("params", {}), payload, context, f"pipeline {name}")
                 if name in self.prepare_errors:
                     raise self.prepare_errors[name]
                 if name not in self.prepared:
@@ -878,6 +915,12 @@ class Flow:
                         self.prepare_errors[name] = exc
                         raise
                 context = deepcopy(self.prepared[name])
+                if context[ENGINE_KEY] == CEL:
+                    _request_scopes(context, request)
+                    context["request"] = deepcopy(request)
+                    context["pipeline_name"] = name
+                    _apply_context(context, _render(definition.get("context", {}), context))
+                    params_for(definition.get("params", {}), payload, context, f"pipeline {name}")
                 context["pipeline_name"] = name
                 if request:
                     context["request"] = deepcopy(request)

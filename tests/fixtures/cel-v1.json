@@ -1,0 +1,346 @@
+{
+  "profile": "mu-cel-v1",
+  "context": {
+    "params": {
+      "n": 3,
+      "text": "calm",
+      "items": [
+        1,
+        2
+      ]
+    },
+    "CreationSpace": {
+      "Registry": {
+        "Feel": "quiet"
+      }
+    }
+  },
+  "cases": [
+    {
+      "name": "int",
+      "template": "${{ params.n * 2 }}",
+      "expected": 6
+    },
+    {
+      "name": "bool",
+      "template": "${{ params.n > 2 }}",
+      "expected": true
+    },
+    {
+      "name": "map",
+      "template": "${{ {\"a\": [params.n, 2]} }}",
+      "expected": {
+        "a": [
+          3,
+          2
+        ]
+      }
+    },
+    {
+      "name": "ancestor",
+      "template": "${{ CreationSpace.Registry.Feel }}",
+      "expected": "quiet"
+    },
+    {
+      "name": "interpolation",
+      "template": "v=${{ params.n }}, b=${{ true }}, n=${{ null }}",
+      "expected": "v=3, b=true, n=null"
+    },
+    {
+      "name": "trim",
+      "template": "  ${{ params.n }}  ",
+      "expected": 3
+    },
+    {
+      "name": "literal",
+      "template": "{params[n]}",
+      "expected": "{params[n]}"
+    },
+    {
+      "name": "escape",
+      "template": "$${{ params.n }}",
+      "expected": "${{ params.n }}"
+    },
+    {
+      "name": "unfinished-escape",
+      "template": "$${{",
+      "expected": "${{"
+    },
+    {
+      "name": "once",
+      "template": "${{ \"${{ 1 + 1 }}\" }}",
+      "expected": "${{ 1 + 1 }}"
+    },
+    {
+      "name": "mapbrace",
+      "template": "${{ {\"x\": \"}}\"} }}",
+      "expected": {
+        "x": "}}"
+      }
+    },
+    {
+      "name": "comment",
+      "template": "${{ 1 // }} ignored\n + 2 }}",
+      "expected": 3
+    },
+    {
+      "name": "has",
+      "template": "${{ has(params.missing) }}",
+      "expected": false
+    },
+    {
+      "name": "short",
+      "template": "${{ false && params.missing == 1 }}",
+      "expected": false
+    },
+    {
+      "name": "ternary",
+      "template": "${{ true ? params.n : params.missing }}",
+      "expected": 3
+    },
+    {
+      "name": "size",
+      "template": "${{ size(params.items) }}",
+      "expected": 2
+    },
+    {
+      "name": "contains",
+      "template": "${{ params.text.contains(\"al\") }}",
+      "expected": true
+    },
+    {
+      "name": "convert",
+      "template": "${{ string(params.n) + \"x\" }}",
+      "expected": "3x"
+    },
+    {
+      "name": "double",
+      "template": "${{ double(params.n) / 2.0 }}",
+      "expected": 1.5
+    },
+    {
+      "name": "list",
+      "template": "${{ [true, null, \"a\"] }}",
+      "expected": [
+        true,
+        null,
+        "a"
+      ]
+    },
+    {
+      "name": "missing",
+      "template": "${{ params.missing }}",
+      "error": true
+    },
+    {
+      "name": "macro",
+      "template": "${{ [1,2].map(x,x+1) }}",
+      "error": true
+    },
+    {
+      "name": "regex",
+      "template": "${{ \"a\".matches(\"a\") }}",
+      "error": true
+    },
+    {
+      "name": "container-interp",
+      "template": "x${{ [1] }}",
+      "error": true
+    },
+    {
+      "name": "unclosed",
+      "template": "${{ 1",
+      "error": true
+    },
+    {
+      "name": "unsafe",
+      "template": "${{ 9007199254740992 }}",
+      "error": true
+    },
+    {
+      "name": "dividezero",
+      "template": "${{ 1 / 0 }}",
+      "error": true
+    },
+    {
+      "name": "host",
+      "template": "${{ timestamp(\"2020-01-01T00:00:00Z\") }}",
+      "error": true
+    },
+    {
+      "name": "float-scalar-text",
+      "template": "n=${{ double(1) }}; tiny=${{ 0.0000001 }}",
+      "expected": "n=1; tiny=1e-7"
+    },
+    {
+      "name": "bytes",
+      "template": "${{ b\"x\" }}",
+      "error": true
+    },
+    {
+      "name": "strict-equality",
+      "template": "${{ true == 1 }}",
+      "error": true
+    },
+    {
+      "name": "boolean-text-cast",
+      "template": "${{ string(true) }}",
+      "expected": "true"
+    },
+    {
+      "name": "boolean-string-cast",
+      "template": "${{ bool(\"false\") }}",
+      "expected": false
+    },
+    {
+      "name": "bool-arithmetic",
+      "template": "${{ true + 1 }}",
+      "error": true
+    },
+    {
+      "name": "bool-int-cast",
+      "template": "${{ int(true) }}",
+      "error": true
+    },
+    {
+      "name": "bool-double-cast",
+      "template": "${{ double(true) }}",
+      "error": true
+    },
+    {
+      "name": "int-bool-cast",
+      "template": "${{ bool(1) }}",
+      "error": true
+    },
+    {
+      "name": "null-string-cast",
+      "template": "${{ string(null) }}",
+      "error": true
+    },
+    {
+      "name": "nested-bool-equality",
+      "template": "${{ [true] == [1] }}",
+      "error": true
+    },
+    {
+      "name": "bool-membership",
+      "template": "${{ 1 in [true] }}",
+      "error": true
+    },
+    {
+      "name": "profile-comparison-cast-0",
+      "template": "${{ string(double(1)) }}",
+      "expected": "1"
+    },
+    {
+      "name": "profile-comparison-cast-1",
+      "template": "${{ string(double(1.5)) }}",
+      "expected": "1.5"
+    },
+    {
+      "name": "profile-comparison-cast-2",
+      "template": "${{ string(1e-7) }}",
+      "expected": "1e-7"
+    },
+    {
+      "name": "profile-comparison-cast-3",
+      "template": "${{ bool(\"True\") }}",
+      "expected": true
+    },
+    {
+      "name": "profile-comparison-cast-4",
+      "template": "${{ size(\"😀\") }}",
+      "expected": 1
+    },
+    {
+      "name": "profile-comparison-cast-5",
+      "template": "${{ \"😀\".size() }}",
+      "expected": 1
+    },
+    {
+      "name": "profile-comparison-cast-6",
+      "template": "${{ int(-1.5) }}",
+      "expected": -1
+    },
+    {
+      "name": "profile-comparison-cast-7",
+      "template": "${{ -5 / 2 }}",
+      "expected": -2
+    },
+    {
+      "name": "profile-comparison-cast-8",
+      "template": "${{ -5 % 2 }}",
+      "expected": -1
+    },
+    {
+      "name": "profile-comparison-cast-9",
+      "template": "${{ \"a\" in [1,\"a\"] }}",
+      "expected": true
+    },
+    {
+      "name": "profile-comparison-cast-10",
+      "template": "${{ 1 in [true,1] }}",
+      "expected": true
+    },
+    {
+      "name": "profile-comparison-cast-11",
+      "template": "${{ [true,1] == [1,1] }}",
+      "expected": false
+    },
+    {
+      "name": "profile-comparison-cast-12",
+      "template": "${{ null == null }}",
+      "expected": true
+    },
+    {
+      "name": "profile-comparison-cast-13",
+      "template": "${{ null == 1 }}",
+      "error": true
+    },
+    {
+      "name": "profile-comparison-cast-14",
+      "template": "${{ string(1u) }}",
+      "expected": "1"
+    },
+    {
+      "name": "profile-comparison-cast-15",
+      "template": "${{ int(\"01\") }}",
+      "expected": 1
+    },
+    {
+      "name": "profile-comparison-cast-16",
+      "template": "${{ bool(\"FALSE\") }}",
+      "expected": false
+    },
+    {
+      "name": "profile-comparison-cast-17",
+      "template": "${{ \"a\".contains(1) }}",
+      "error": true
+    },
+    {
+      "name": "profile-comparison-cast-18",
+      "template": "${{ 1 + 1.0 }}",
+      "error": true
+    },
+    {
+      "name": "profile-comparison-cast-19",
+      "template": "${{ 1 == 1.0 }}",
+      "error": true
+    },
+    {
+      "name": "profile-comparison-cast-20",
+      "template": "${{ 1 < 1.0 }}",
+      "expected": false
+    },
+    {
+      "name": "multiline-string",
+      "template": "${{ \"\"\"one}}\ntwo\"\"\" }}",
+      "expected": "one}}\ntwo"
+    },
+    {
+      "name": "raw-quoted-delimiter",
+      "template": "${{ r\"quote\\\"}}inside\" }}",
+      "expected": "quote\\\"}}inside"
+    }
+  ]
+}

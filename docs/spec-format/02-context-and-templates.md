@@ -329,8 +329,8 @@ uses that number. Supplying the unresolved expression directly as a local
 numeric parameter is still a type error. Existing `{...}` rendering of supplied
 values and Spec defaults remains in effect.
 
-This feature does not change the Spec language. CEL in Spec YAML/actions,
-conditions or local request files is deferred to the versioned engine migration
-(phase 5). Lowercase worker `session` remains runtime context, independent of a
+This phase-4 contract applies to legacy Specs. Phase 5 adds opt-in CEL Spec
+execution; see [the versioned engine and migration guide](11-cel.md). CEL Spec
+Request payloads remain literal data, not executable templates. Lowercase worker `session` remains runtime context, independent of a
 Creation Session. MasterFlow snapshot/edit/refresh/retry semantics are documented
 in [the canonical MasterFlow Registry guide](https://github.com/khanhtranrk/mu-masterflow/blob/main/docs/registry-cel.md).

@@ -20,6 +20,8 @@ class MasterFlowClient:
     def _call(self, path, body=None):
         headers = {"Authorization": "Bearer " + self.token,
                    "Accept": "application/yaml" if body is None else "application/json"}
+        if body is None:
+            headers["X-Mu-Expression-Engines"] = "python-format-v1,cel-v1"
         data = None
         if body is not None:
             headers["Content-Type"] = "application/json"
