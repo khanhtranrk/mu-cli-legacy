@@ -17,6 +17,7 @@ The current runtime and legacy compatibility paths serve different spec formats.
 - `src/mu/spec.py`: legacy spec loading and repair validation.
 - `src/mu/actions.py`: legacy pluggable action registry.
 - `src/mu/validators.py`: legacy pluggable validation registry.
+- `src/mu/transcriptor.py`: WhisperX transcript evaluation and subtitle conversion (SRT, ASS, karaoke).
 
 Do not assume that fields in the legacy `processors`/`pipelines`/`steps` format match fields in the workload/pipeline/node format. Add format behavior to the owning module rather than introducing CLI-only branches.
 
@@ -60,6 +61,20 @@ Do not assume that fields in the legacy `processors`/`pipelines`/`steps` format 
 - Preserve context isolation. Render from a copy, merge declared context deliberately, and never mutate a sibling request or node context.
 - Preserve ordering when the spec promises it. Independent nodes may run concurrently, but `finally` always remains at the end of the node lifecycle.
 - Update both the technical guide and at least one executable example when introducing a public field.
+
+## Adding standalone tools
+
+Standalone tools (accessed via `mu tool <name>`) are separate from spec-based execution and implement specialized functionality:
+
+- Create a new module under `src/mu/` with the tool's core logic (e.g., `src/mu/transcriptor.py`).
+- Add a new typer sub-app under `tool_app` in `src/mu/cli.py` for the tool's commands.
+- Follow the pattern of `transcriptor_app` for command structure: import the module, define command functions with proper argument validation, and handle errors consistently.
+- Add documentation in `docs/tool/` following the existing format (see `docs/tool/transcriptor.md` for a complete example).
+- Update `docs/tool/README.md` to include the new tool in the available tools list.
+- Update the main `README.md` documentation table to reference the new tool's documentation.
+- Tools should not depend on spec formats or runtime context. They are independent utilities that operate on input files directly.
+- Validate file paths and arguments before processing; use typer's built-in validation (exists=True, dir_okay=False, etc.) where appropriate.
+- Provide clear error messages that help users understand what went wrong and how to fix it.
 
 ## Validation and testing
 

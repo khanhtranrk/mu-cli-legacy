@@ -13,6 +13,8 @@ from mu.validators import ValidationError, validate_action_checks
 app = typer.Typer(no_args_is_help=True)
 spec_app = typer.Typer(no_args_is_help=True)
 app.add_typer(spec_app, name="spec")
+tool_app = typer.Typer(no_args_is_help=True)
+app.add_typer(tool_app, name="tool")
 
 
 def _validate_completed_steps(tasks: list[dict], *, force_validate: bool) -> None:
@@ -350,6 +352,70 @@ def run(
     _print_run_report(pipeline, tasks, input_results)
     if any(task["status"] != "succeeded" for task in tasks):
         raise typer.Exit(code=1)
+
+
+transcriptor_app = typer.Typer(no_args_is_help=True)
+tool_app.add_typer(transcriptor_app, name="transcriptor")
+
+
+@transcriptor_app.command("evaluate")
+def transcriptor_evaluate(
+    transcript_path: Path = typer.Argument(..., exists=True, dir_okay=False, readable=True, help="WhisperX output JSON file"),
+    lyrics_path: Path = typer.Argument(..., exists=True, dir_okay=False, readable=True, help="Lyrics JSON file"),
+    output_type: str = typer.Option("pretty", "--output-type", help="Output format: pretty, plaintext, json, yaml"),
+    overall_min: float = typer.Option(0.85, "--overall-min", min=0, max=1, help="Overall similarity threshold"),
+    local_min: float = typer.Option(0.60, "--local-min", min=0, max=1, help="Local window coverage threshold"),
+    window: int = typer.Option(25, "--window", min=1, help="Window size for local coverage check"),
+    step: int = typer.Option(5, "--step", min=1, help="Step size for sliding window"),
+    line_min: float = typer.Option(0.50, "--line-min", min=0, max=1, help="Minimum line coverage threshold"),
+) -> None:
+    """Evaluate WhisperX transcript against lyrics."""
+    from mu.transcriptor import evaluate
+    valid_types = ["pretty", "plaintext", "json", "yaml"]
+    if output_type not in valid_types:
+        typer.echo(f"Invalid --output-type: {output_type}. Must be one of: {', '.join(valid_types)}", err=True)
+        raise typer.Exit(code=2)
+    try:
+        evaluate(
+            transcript_path=transcript_path,
+            lyrics_path=lyrics_path,
+            output_type=output_type,
+            overall_min=overall_min,
+            local_min=local_min,
+            window=window,
+            step=step,
+            line_min=line_min,
+        )
+    except Exception as exc:
+        typer.echo(f"Evaluation failed: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+
+
+@transcriptor_app.command("convert")
+def transcriptor_convert(
+    transcript_path: Path = typer.Argument(..., exists=True, dir_okay=False, readable=True, help="WhisperX output JSON file"),
+    lyrics_path: Path = typer.Argument(..., exists=True, dir_okay=False, readable=True, help="Lyrics JSON file"),
+    target_type: str = typer.Option("k-ass", "--target-type", help="Target format: k-ass (karaoke ASS), ass, srt"),
+    output: Path = typer.Option(None, "--output", help="Output file path (default: karaoke.ass, lyrics.ass, or lyrics.srt)"),
+    min_timing_coverage: float = typer.Option(0.50, "--min-timing-coverage", min=0, max=1, help="Minimum timing coverage per line"),
+) -> None:
+    """Convert WhisperX transcript to subtitle format."""
+    from mu.transcriptor import convert
+    valid_types = ["k-ass", "ass", "srt"]
+    if target_type not in valid_types:
+        typer.echo(f"Invalid --target-type: {target_type}. Must be one of: {', '.join(valid_types)}", err=True)
+        raise typer.Exit(code=2)
+    try:
+        convert(
+            transcript_path=transcript_path,
+            lyrics_path=lyrics_path,
+            target_type=target_type,
+            output=output,
+            min_timing_coverage=min_timing_coverage,
+        )
+    except Exception as exc:
+        typer.echo(f"Conversion failed: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
 
 
 flow_app = typer.Typer(no_args_is_help=True)

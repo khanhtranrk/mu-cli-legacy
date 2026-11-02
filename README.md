@@ -41,6 +41,7 @@ For a remote worker, see the [master-flow CLI guide](docs/spec-format/07-master-
 | Local and remote execution, CLI flags, lifecycle | [Master-flow and CLI](docs/spec-format/07-master-flow-and-cli.md) |
 | Spec-defined lifecycle hooks | [Events](docs/spec-format/10-events.md) |
 | Reusable routines and file metadata | [Routines](docs/spec-format/09-routines.md) |
+| WhisperX transcript evaluation and subtitle conversion | [Transcriptor tool](docs/tool/transcriptor.md) |
 | Complete YAML example | [Example spec](examples/song-with-cover/spec.yaml) |
 | Cross-project workspace | [MU workspace](https://github.com/khanhtranrk/mu) |
 
