@@ -110,3 +110,14 @@ advertise `expressionEngine` when claiming; the server rejects an engine mismatc
 before any Request changes status. Bootstrap also requires the
 `X-Mu-Expression-Engines: python-format-v1,cel-v1` capability header for CEL
 Specs, so old workers cannot run their entry initialization. Upgrade/restart workers when changing engines.
+
+### Artifact Registry references
+
+MasterFlow's `artifact` Registry type is captured as ordinary JSON:
+`{"artifactId": "<canonical Artifact ID>"}`. For example,
+`${{ Session.Registry.Asset.artifactId }}` resolves the canonical ID, while
+`${{ Session.Registry.Asset }}` returns the object for an object parameter.
+The worker preserves and isolates this map like other captured Registry values.
+This type adds no YAML parameter type, signed URL, automatic download or new
+worker endpoint. Source scope validation and capture belong to MasterFlow; see
+[Artifact Registry values](../../../mu-masterflow/docs/registry-cel.md#artifact-registry-values).

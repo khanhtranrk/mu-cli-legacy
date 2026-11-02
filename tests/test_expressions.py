@@ -241,3 +241,18 @@ class ExpressionTests(unittest.TestCase):
             )
             self.assertEqual(result.exit_code, 2)
             self.assertFalse((root / "blocked.yaml").exists())
+
+    def test_captured_artifact_registry_reference_is_plain_json_and_isolated(self):
+        from mu.runtime import _request_scopes
+
+        reference = {"artifactId": "canonical-artifact-id"}
+        request = {"registryContext": {"Session": {"Asset": reference}}}
+        context = {ENGINE_KEY: CEL}
+        _request_scopes(context, request)
+        self.assertEqual(
+            render("${{ Session.Registry.Asset.artifactId }}", context),
+            "canonical-artifact-id",
+        )
+        self.assertEqual(render("${{ Session.Registry.Asset }}", context), reference)
+        context["Session"]["Registry"]["Asset"]["artifactId"] = "changed"
+        self.assertEqual(reference["artifactId"], "canonical-artifact-id")
