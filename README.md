@@ -1,8 +1,11 @@
-# MU CLI
+# MU CLI — Legacy Python Runtime
+
+> [!WARNING]
+> **LEGACY / MIGRATION REFERENCE — NOT THE ACTIVE CLI.** This repository preserves the Python implementation for compatibility tests, behavior comparison and migration to [MU CLI v2 (Bun/TypeScript)](https://github.com/khanhtranrk/mu-cli). Do not add new features here by default. Existing commands and examples below describe the **legacy** runtime.
 
 **Run reproducible pipelines across CPU and GPU workers.**
 
-MU CLI is the execution engine of [MU](https://github.com/khanhtranrk/mu). Define workloads and dependency-aware pipelines in YAML or JSON, then run them locally or connect a worker to [MU MasterFlow](https://github.com/khanhtranrk/mu-masterflow). The repository is named **mu-cli**, but the executable command is simply **`mu`**.
+MU CLI is the execution engine of [MU](https://github.com/khanhtranrk/mu). Define workloads and dependency-aware pipelines in YAML or JSON, then run them locally or connect a worker to [MU MasterFlow](https://github.com/khanhtranrk/mu-masterflow). This repository is named **mu-cli-legacy**; the historical executable command is **`mu`**.
 
 ## What it does
 
@@ -16,8 +19,8 @@ MU CLI is the execution engine of [MU](https://github.com/khanhtranrk/mu). Defin
 **Requirements:** Python 3.13+ and [uv](https://docs.astral.sh/uv/). GPU tooling is optional for supported devices.
 
 ```bash
-git clone https://github.com/khanhtranrk/mu-cli.git
-cd mu-cli
+git clone https://github.com/khanhtranrk/mu-cli-legacy.git
+cd mu-cli-legacy
 uv sync
 uv run mu --help
 ```
@@ -49,7 +52,7 @@ The detailed schema, operator reference, scheduling semantics, and integration c
 
 ## For coding agents and contributors
 
-Start with **[AGENTS.md](AGENTS.md)**. It explains the runtime architecture, current vs. legacy spec paths, invariants, and safe validation. Read the relevant docs and source before changing behavior. Work on the CLI here; cross-project changes may also require updates to MasterFlow and the parent workspace's submodule pointer.
+Start with **[AGENTS.md](AGENTS.md)**. Treat this codebase as read-only by default: implement new CLI features in [MU CLI v2](https://github.com/khanhtranrk/mu-cli), and modify legacy only when an explicit compatibility or maintenance task requires it. It explains the runtime architecture, current vs. legacy spec paths, invariants, and safe validation. Read the relevant docs and source before changing behavior. Work on the CLI here; cross-project changes may also require updates to MasterFlow and the parent workspace's submodule pointer.
 
 For a quick non-destructive check:
 
