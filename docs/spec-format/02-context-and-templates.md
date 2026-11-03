@@ -317,4 +317,4 @@ A Request width `${{ Request.Registry.Width }}` can arrive as number `1024`.
 A Spec default can read that captured value directly; locally supplied unresolved
 expressions remain strings and fail numeric parameter validation.
 See [CEL execution](11-cel.md) and the canonical
-[Registry guide](https://github.com/khanhtranrk/mu-masterflow/blob/master/docs/registry-cel.md).
+[Registry guide](https://github.com/khanhtranrk/mu-masterflow/blob/master/docs/reference/registry-cel.md).

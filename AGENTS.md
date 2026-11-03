@@ -118,5 +118,5 @@ Bootstrap advertises supported engines; claim sends the engine actually loaded.
 Keep claimed output metadata in `request.artifacts` for copied/shared inputs.
 HTTP `artifactId` denotes a Request output key, not the canonical Artifact ID.
 S3 downloads use expiring URLs with no legacy-provider flag. Server identity and
-ownership are canonical in the sibling MasterFlow [Artifact model](../mu-masterflow/docs/artifact-ownership.md);
+ownership are canonical in the sibling MasterFlow [Artifact model](../mu-masterflow/docs/architecture/artifact-ownership.md);
 workers must not reintroduce metadata shadow tables or old storageId workflows.

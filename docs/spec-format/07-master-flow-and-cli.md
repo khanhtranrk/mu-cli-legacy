@@ -177,9 +177,9 @@ uploads are limited to 5 GiB. Soft deletion denies new artifact access, while
 retaining bytes. The current server ownership projection preserves worker payloads: Copy
 and Share into a Request simply register the target's own output-key projection.
 Workers do not gain access to arbitrary Space/Session Artifacts or reuse operations.
-See the canonical [MasterFlow artifact ownership documentation](https://github.com/khanhtranrk/mu-masterflow/blob/master/docs/artifact-ownership.md)
+See the canonical [MasterFlow artifact ownership documentation](https://github.com/khanhtranrk/mu-masterflow/blob/master/docs/architecture/artifact-ownership.md)
 for the current Artifact/File model (legacy adapters/backfills are removed), and its
-[storage protocol](https://github.com/khanhtranrk/mu-masterflow/blob/master/docs/request-artifacts.md)
+[storage protocol](https://github.com/khanhtranrk/mu-masterflow/blob/master/docs/reference/request-artifacts.md)
 for setup and provider behavior.
 
 See [the executable example](../../examples/master-flow-artifacts/spec.yaml), which creates and uploads a small JSON file, downloads it again and compares the bytes. Store the spec in MasterFlow, create a disposable request for its `demo` pipeline, and run `uv run mu master-flow run <spec-slug> --unit-id artifact-demo` with `MU_MASTER_FLOW_SERVER` and `MU_MASTER_FLOW_TOKEN` configured. No GPU or model downloads are required. Only run against requests intended for this test.
@@ -195,7 +195,7 @@ without repeating report actions in every node. Uploads remain explicit spec act
 
 Current MasterFlow tokens are bound by the Clerk owner to one exact --unit-id and an explicit allowed-spec list. Update existing tokens in Settings → Unit tokens. Workers claim waiting requests only; custom claims for processing/completed statuses are refused. Server claim responses must include assignmentVersion; the CLI preserves it in request context, and request HTTP actions automatically include X-Mu-Assignment-Version for the configured server origin. Old in-flight clients without assignment generations must finish before cutover or have their work deliberately requeued. Worker tokens no longer allow global request inspection or creation; use the authenticated desktop.
 
-Artifact uploads use the server-issued method and headers (S3 PUT), not a fixed POST, and completion no longer includes Convex storageId. Resolve a download URL with worker auth, then fetch bytes directly without sending the worker token to storage. Update stored YAML as well as local examples; MasterFlow's saved YAML remains authoritative and is never silently rewritten by this migration. The sibling MasterFlow docs/request-artifacts.md owns the full storage configuration/security contract.
+Artifact uploads use the server-issued method and headers (S3 PUT), not a fixed POST, and completion no longer includes Convex storageId. Resolve a download URL with worker auth, then fetch bytes directly without sending the worker token to storage. Update stored YAML as well as local examples; MasterFlow's saved YAML remains authoritative and is never silently rewritten by this migration. The sibling MasterFlow [storage protocol](https://github.com/khanhtranrk/mu-masterflow/blob/master/docs/reference/request-artifacts.md) owns the full storage configuration/security contract.
 
 ### Registry-derived request parameters
 

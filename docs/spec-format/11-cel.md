@@ -109,4 +109,4 @@ MasterFlow's `artifact` Registry type is captured as ordinary JSON:
 The worker preserves and isolates this map like other captured Registry values.
 This type adds no YAML parameter type, signed URL, automatic download or new
 worker endpoint. Source scope validation and capture belong to MasterFlow; see
-[Artifact Registry values](../../../mu-masterflow/docs/registry-cel.md#artifact-registry-values).
+[Artifact Registry values](../../../mu-masterflow/docs/reference/registry-cel.md#artifact-registry-values).
