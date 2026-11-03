@@ -1,4 +1,8 @@
-# Instructions for coding agents
+# Instructions for coding agents — LEGACY PYTHON RUNTIME
+
+> **WARNING — LEGACY / READ-ONLY BY DEFAULT.** This repository is the previous Python implementation of MU CLI. The active replacement is [mu-cli (Bun/TypeScript)](https://github.com/khanhtranrk/mu-cli). Do not implement new features, broad refactors or new architecture here unless explicitly requested. Use this repository to inspect historical behavior, reproduce regressions, and validate migration compatibility. Never assume the new CLI has feature parity without checking its implementation.
+
+Use the `master` branch; do not create or switch to `main`. Coordinate cross-repository changes through the [MU workspace](https://github.com/khanhtranrk/mu).
 
 ## Project overview
 
