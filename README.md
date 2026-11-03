@@ -38,6 +38,8 @@ For a remote worker, see the [master-flow CLI guide](docs/spec-format/07-master-
 
 ## Documentation
 
+Start with the [documentation map](docs/README.md) for current references and historical context.
+
 | Topic | Where to read |
 | --- | --- |
 | Spec format, contexts, actions, conditions, pipelines | [Spec format guide](docs/spec-format/README.md) |

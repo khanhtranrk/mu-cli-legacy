@@ -174,12 +174,12 @@ API and storage origins must be reachable by the worker.
 
 The 100 logical output-key limit per Request includes deletion tombstones. Single
 uploads are limited to 5 GiB. Soft deletion denies new artifact access, while
-retaining bytes. The phase-2 server adapter preserves all worker payloads: Copy
+retaining bytes. The current server ownership projection preserves worker payloads: Copy
 and Share into a Request simply register the target's own output-key projection.
 Workers do not gain access to arbitrary Space/Session Artifacts or reuse operations.
-See the canonical [MasterFlow artifact ownership documentation](https://github.com/khanhtranrk/mu-masterflow/blob/main/docs/artifact-ownership.md)
-for the Artifact/File model and metadata migration, and its
-[storage protocol](https://github.com/khanhtranrk/mu-masterflow/blob/main/docs/request-artifacts.md)
+See the canonical [MasterFlow artifact ownership documentation](https://github.com/khanhtranrk/mu-masterflow/blob/master/docs/artifact-ownership.md)
+for the current Artifact/File model (legacy adapters/backfills are removed), and its
+[storage protocol](https://github.com/khanhtranrk/mu-masterflow/blob/master/docs/request-artifacts.md)
 for setup and provider behavior.
 
 See [the executable example](../../examples/master-flow-artifacts/spec.yaml), which creates and uploads a small JSON file, downloads it again and compares the bytes. Store the spec in MasterFlow, create a disposable request for its `demo` pipeline, and run `uv run mu master-flow run <spec-slug> --unit-id artifact-demo` with `MU_MASTER_FLOW_SERVER` and `MU_MASTER_FLOW_TOKEN` configured. No GPU or model downloads are required. Only run against requests intended for this test.

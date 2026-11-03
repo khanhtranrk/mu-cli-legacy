@@ -2,7 +2,7 @@
 
 This directory explains the YAML/JSON structure understood by Mu, using the spec in [`examples/song-with-cover`](../../examples/song-with-cover/spec.yaml). It is designed so you can read an existing spec and create a new one without having to guess the meaning of every field.
 
-> This documentation describes the **format that the runtime currently executes**. Names shown in references and examples, such as `id`, condition `target`, or `send http request`, are not always the exact names in the source. Where the documentation conflicts with a keyword, the “Exact names” section is the authority.
+> This documentation describes the **format that the runtime currently executes**. Verify field names and semantics against `src/mu/runtime.py`, `src/mu/expressions.py` and their tests when documentation disagrees. This guide describes Python behavior, not automatic TypeScript feature parity.
 
 ## Read in this order
 
